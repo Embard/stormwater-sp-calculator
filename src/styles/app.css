@@ -177,6 +177,7 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 input,
 select {
   width: 100%;
+  min-width: 0;
   min-height: 32px;
   border: 1px solid #bfd3d9;
   border-radius: 8px;
@@ -201,6 +202,11 @@ input[readonly] {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+}
+
+.input-row > input {
+  min-width: 0;
 }
 
 .unit {
@@ -265,7 +271,7 @@ input[readonly] {
 
 .object-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
+  grid-template-columns: minmax(0, 1.6fr) minmax(260px, 0.4fr);
   gap: 10px;
   align-items: start;
 }
@@ -274,6 +280,19 @@ input[readonly] {
 .place-search {
   display: grid;
   gap: 8px;
+}
+
+.compact-selected-place {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.compact-selected-place > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
 }
 
 .selected-place {
@@ -304,7 +323,7 @@ input[readonly] {
 }
 
 .compact-matches {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .match {
@@ -341,6 +360,7 @@ input[readonly] {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  align-items: start;
 }
 
 .subsection-box {
@@ -361,6 +381,7 @@ input[readonly] {
 
 .normative-input.compact {
   gap: 3px;
+  min-width: 0;
 }
 
 .normative-input.compact input[type='number'] {
@@ -369,13 +390,12 @@ input[readonly] {
 }
 
 .normative-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
   color: var(--muted);
   font-size: 10px;
   line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .range {
@@ -395,11 +415,11 @@ input[readonly] {
 }
 
 .surface-table-wrap {
-  overflow-x: auto;
+  overflow-x: visible;
 }
 
 .surface-table {
-  min-width: 980px;
+  table-layout: fixed;
 }
 
 table {
@@ -409,7 +429,7 @@ table {
 
 th,
 td {
-  padding: 6px;
+  padding: 5px;
   border-bottom: 1px solid #e4eef1;
   vertical-align: top;
   text-align: left;
@@ -425,40 +445,51 @@ td {
   font-size: 12px;
 }
 
-.surface-name-cell {
-  width: 210px;
+.surface-head-actions {
+  display: flex;
+  align-items: end;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.surface-area-cell {
-  width: 120px;
+.total-area-field {
+  width: 160px;
 }
 
-.surface-flags {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px 8px;
-  min-width: 150px;
+.col-name { width: 24%; }
+.col-area { width: 13%; }
+.col-coeff { width: 23%; }
+.col-check { width: 6%; }
+.col-action { width: 5%; }
+
+.check-cell {
+  text-align: center;
+  vertical-align: middle;
 }
 
-.surface-flags label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: #425866;
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.surface-flags input {
-  width: auto;
-  min-height: auto;
-  margin: 0;
+.check-cell input {
+  width: 16px;
+  min-height: 16px;
+  margin: 12px auto 0;
 }
 
 .row-action-cell {
   width: 34px;
   text-align: right;
+  vertical-align: middle;
 }
+
+.area-mismatch {
+  color: var(--danger);
+}
+.surface-table input[type='number'],
+.surface-table input[type='text'],
+.surface-table input:not([type]) {
+  min-height: 30px;
+  padding: 6px 7px;
+}
+
 
 .accent-card {
   background: linear-gradient(180deg, #ffffff, #f0fbfc);
@@ -655,6 +686,15 @@ td {
   .subsection-grid,
   .right-column {
     grid-template-columns: 1fr;
+  }
+
+  .surface-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .surface-head-actions {
+    justify-content: flex-start;
   }
 
   .three-columns {
