@@ -54,6 +54,7 @@ export type SurfaceItem = {
   kind: SurfaceKind;
   areaHa: number;
   annualRainCoeff: NormativeValue;
+  coverCoeff: NormativeValue;
   designRainCoeff: NormativeValue;
   isHardSurface: boolean;
   isWashed: boolean;
