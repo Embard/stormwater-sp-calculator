@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Calculator, FileText } from 'lucide-react';
 import './styles/app.css';
 import './styles/print.css';
@@ -13,7 +13,7 @@ import { PrintSheet } from './components/PrintSheet';
 import { ResultsPanel } from './components/ResultsPanel';
 import { SurfaceTable } from './components/SurfaceTable';
 import { ValidationPanel } from './components/ValidationPanel';
-import type { ClimateParameters, ProjectInput, SourceRef, SurfaceItem } from './types';
+import type { ClimateParameters, ProjectInput, SourceRef, SurfaceItem, TreatmentInput } from './types';
 
 const sourceId = 'sp32-2018-izm1-5';
 
@@ -108,8 +108,66 @@ const initialProject: ProjectInput = {
   }
 };
 
+type SectionCardProps = {
+  step: string;
+  title: string;
+  note?: string;
+  children: ReactNode;
+};
+
+function SectionCard({ step, title, note, children }: SectionCardProps) {
+  return (
+    <section className="card section-card">
+      <div className="section-head">
+        <div>
+          <span className="step-label">{step}</span>
+          <h2>{title}</h2>
+          {note ? <p className="section-subtitle">{note}</p> : null}
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+type NumberFieldProps = {
+  label: string;
+  value: number;
+  onChange: (next: number) => void;
+  step?: string;
+  unit?: string;
+  readOnly?: boolean;
+};
+
+function NumberField({ label, value, onChange, step = '0.0001', unit, readOnly = false }: NumberFieldProps) {
+  return (
+    <label className="field compact-field">
+      <span className="field-label">{label}</span>
+      <div className="input-row">
+        <input
+          type="number"
+          step={step}
+          value={value}
+          readOnly={readOnly}
+          onChange={(event) => onChange(Number(event.target.value))}
+        />
+        {unit ? <span className="unit">{unit}</span> : null}
+      </div>
+    </label>
+  );
+}
+
+function updateTreatment(project: ProjectInput, patch: Partial<TreatmentInput>): ProjectInput {
+  return { ...project, treatment: { ...project.treatment, ...patch } };
+}
+
 export default function App() {
   const [project, setProject] = useState<ProjectInput>(initialProject);
+
+  const treatmentArea = useMemo(
+    () => project.surfaces.filter((surface) => surface.routedToTreatment).reduce((sum, surface) => sum + surface.areaHa, 0),
+    [project.surfaces]
+  );
 
   const calculatedTreatmentCoeff = useMemo(
     () => weightedCoefficient(project.surfaces, 'designRainCoeff', (surface) => surface.routedToTreatment),
@@ -117,7 +175,6 @@ export default function App() {
   );
 
   const projectForCalc = useMemo<ProjectInput>(() => {
-    const treatmentArea = project.surfaces.filter((x) => x.routedToTreatment).reduce((sum, x) => sum + x.areaHa, 0);
     return {
       ...project,
       treatment: {
@@ -131,72 +188,134 @@ export default function App() {
         rainTreatmentCoeffScopeAreaHa: treatmentArea || project.treatment.rainTreatmentCoeffScopeAreaHa
       }
     };
-  }, [project, calculatedTreatmentCoeff]);
+  }, [project, treatmentArea, calculatedTreatmentCoeff]);
 
   const results = useMemo(() => calculateProject(projectForCalc), [projectForCalc]);
   const issues = useMemo(() => validateProject(projectForCalc), [projectForCalc]);
   const sources = sourcesData as SourceRef[];
 
+  const scrollToResults = () => {
+    document.getElementById('results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
     <main className="app-shell">
-      <header className="hero no-print">
-        <div>
-          <span className="eyebrow">СП 32.13330.2018, редакция с изменениями</span>
-          <h1><Calculator size={32} /> Калькулятор ливневого стока</h1>
-          <p>Расчет годовых объемов, дождевого расхода, объема на очистку, талого стока, производительности очистных сооружений и резервуара.</p>
+      <header className="topbar no-print">
+        <div className="topbar-title">
+          <span className="eyebrow">СП 32.13330.2018 с изменениями</span>
+          <h1><Calculator size={22} /> Калькулятор ливневого стока</h1>
         </div>
-        <button type="button" onClick={() => window.print()}><FileText size={18} /> Печатный лист</button>
+        <div className="topbar-actions">
+          <button type="button" className="secondary-button" onClick={scrollToResults}>Рассчитать</button>
+          <button type="button" className="primary-button" onClick={() => window.print()}><FileText size={16} /> Печатный лист</button>
+        </div>
       </header>
 
       <div className="layout no-print">
         <div className="left-column">
-          <PlaceSearch value={project.place} onSelect={(place) => setProject({ ...project, place })} />
-
-          <section className="card">
-            <h2>Общие данные</h2>
-            <label className="field">
-              <span className="field-label">Наименование объекта</span>
-              <input value={project.objectName} onChange={(e) => setProject({ ...project, objectName: e.target.value })} />
-            </label>
-            <label className="field">
-              <span className="field-label">Общая площадь, га</span>
-              <input type="number" step="0.0001" value={project.totalAreaHa} onChange={(e) => setProject({ ...project, totalAreaHa: Number(e.target.value) })} />
-            </label>
-          </section>
+          <SectionCard step="1" title="Объект и место строительства" note="Минимум исходных данных для привязки климатических параметров и расчетной площади.">
+            <div className="object-grid">
+              <PlaceSearch value={project.place} onSelect={(place) => setProject({ ...project, place })} />
+              <div className="object-fields">
+                <label className="field compact-field">
+                  <span className="field-label">Наименование объекта</span>
+                  <input value={project.objectName} onChange={(event) => setProject({ ...project, objectName: event.target.value })} />
+                </label>
+                <NumberField label="Общая площадь" value={project.totalAreaHa} unit="га" onChange={(totalAreaHa) => setProject({ ...project, totalAreaHa })} />
+              </div>
+            </div>
+          </SectionCard>
 
           <SurfaceTable surfaces={project.surfaces} onChange={(surfaces) => setProject({ ...project, surfaces })} />
 
-          <section className="card param-grid">
-            <h2>Климатические и технологические параметры</h2>
-            <NormativeInput label="Осадки теплого периода hд" value={project.climate.hdWarmPeriodMm} onChange={(hdWarmPeriodMm) => setProject({ ...project, climate: { ...project.climate, hdWarmPeriodMm } })} />
-            <NormativeInput label="Осадки холодного периода hт" value={project.climate.htColdPeriodMm} onChange={(htColdPeriodMm) => setProject({ ...project, climate: { ...project.climate, htColdPeriodMm } })} />
-            <NormativeInput label="Коэффициент талого стока ψт" value={project.snowMeltCoeff} onChange={(snowMeltCoeff) => setProject({ ...project, snowMeltCoeff })} />
-            <label className="field"><span className="field-label">Площадь уборки снега, га</span><input type="number" step="0.0001" value={project.snowCleanedAreaHa} onChange={(e) => setProject({ ...project, snowCleanedAreaHa: Number(e.target.value) })} /></label>
-            <label className="field"><span className="field-label">Площадь мойки, га</span><input type="number" step="0.0001" value={project.washingAreaHa} onChange={(e) => setProject({ ...project, washingAreaHa: Number(e.target.value) })} /></label>
-            <NormativeInput label="Удельный расход на мойку" value={project.washingRateLPerM2} onChange={(washingRateLPerM2) => setProject({ ...project, washingRateLPerM2 })} />
-            <label className="field"><span className="field-label">Количество моек в год</span><input type="number" value={project.washingCountPerYear} onChange={(e) => setProject({ ...project, washingCountPerYear: Number(e.target.value) })} /></label>
-            <NormativeInput label="Коэффициент поливомоечного стока" value={project.washingRunoffCoeff} onChange={(washingRunoffCoeff) => setProject({ ...project, washingRunoffCoeff })} />
-            <NormativeInput label="Коэффициент неравномерности снеготаяния" value={project.meltUnevennessCoeff} onChange={(meltUnevennessCoeff) => setProject({ ...project, meltUnevennessCoeff })} />
-            <NormativeInput label="Слой талого стока hc" value={project.climate.hcMeltTenHourMm} onChange={(hcMeltTenHourMm) => setProject({ ...project, climate: { ...project.climate, hcMeltTenHourMm } })} />
-          </section>
+          <SectionCard step="3" title="Климат и технология" note="Базовые параметры годовых объемов, талого стока и поливомоечных вод.">
+            <div className="subsection-grid">
+              <div className="subsection-box">
+                <h3>Климат</h3>
+                <div className="dense-grid two-columns">
+                  <NormativeInput compact label="hд, теплый период" value={project.climate.hdWarmPeriodMm} onChange={(hdWarmPeriodMm) => setProject({ ...project, climate: { ...project.climate, hdWarmPeriodMm } })} />
+                  <NormativeInput compact label="hт, холодный период" value={project.climate.htColdPeriodMm} onChange={(htColdPeriodMm) => setProject({ ...project, climate: { ...project.climate, htColdPeriodMm } })} />
+                  <NormativeInput compact label="hc, талый сток за 10 ч" value={project.climate.hcMeltTenHourMm} onChange={(hcMeltTenHourMm) => setProject({ ...project, climate: { ...project.climate, hcMeltTenHourMm } })} />
+                  <NormativeInput compact label="Коэффициент талого стока" value={project.snowMeltCoeff} onChange={(snowMeltCoeff) => setProject({ ...project, snowMeltCoeff })} />
+                </div>
+              </div>
 
-          <section className="card param-grid">
-            <h2>Дождевой расход и очистка</h2>
-            <NormativeInput label="q20" value={project.rainFlow.q20} onChange={(q20) => setProject({ ...project, rainFlow: { ...project.rainFlow, q20 } })} />
-            <NormativeInput label="P" value={project.rainFlow.p} onChange={(p) => setProject({ ...project, rainFlow: { ...project.rainFlow, p } })} />
-            <NormativeInput label="n" value={project.rainFlow.n} onChange={(n) => setProject({ ...project, rainFlow: { ...project.rainFlow, n } })} />
-            <NormativeInput label="mr" value={project.rainFlow.mr} onChange={(mr) => setProject({ ...project, rainFlow: { ...project.rainFlow, mr } })} />
-            <NormativeInput label="gamma" value={project.rainFlow.gamma} onChange={(gamma) => setProject({ ...project, rainFlow: { ...project.rainFlow, gamma } })} />
-            <NormativeInput label="Zmid" value={project.rainFlow.zMid} onChange={(zMid) => setProject({ ...project, rainFlow: { ...project.rainFlow, zMid } })} />
-            <label className="field"><span className="field-label">Длина коллектора, м</span><input type="number" value={project.rainFlow.pipeLengthM} onChange={(e) => setProject({ ...project, rainFlow: { ...project.rainFlow, pipeLengthM: Number(e.target.value) } })} /></label>
-            <label className="field"><span className="field-label">Скорость, м/с</span><input type="number" step="0.01" value={project.rainFlow.pipeVelocityMS} onChange={(e) => setProject({ ...project, rainFlow: { ...project.rainFlow, pipeVelocityMS: Number(e.target.value) } })} /></label>
-            <NormativeInput label="Слой расчетного дождя ha" value={project.climate.haRainTreatmentMm} onChange={(haRainTreatmentMm) => setProject({ ...project, climate: { ...project.climate, haRainTreatmentMm } })} />
-            <label className="field"><span className="field-label">Резервуар, рабочий объем, м³</span><input type="number" value={project.treatment.reservoirWorkingVolumeM3} onChange={(e) => setProject({ ...project, treatment: { ...project.treatment, reservoirWorkingVolumeM3: Number(e.target.value) } })} /></label>
-          </section>
+              <div className="subsection-box">
+                <h3>Технологические параметры</h3>
+                <div className="dense-grid two-columns">
+                  <NumberField label="Площадь уборки снега" value={project.snowCleanedAreaHa} unit="га" onChange={(snowCleanedAreaHa) => setProject({ ...project, snowCleanedAreaHa })} />
+                  <NormativeInput compact label="Неравномерность снеготаяния" value={project.meltUnevennessCoeff} onChange={(meltUnevennessCoeff) => setProject({ ...project, meltUnevennessCoeff })} />
+                  <NumberField label="Площадь мойки" value={project.washingAreaHa} unit="га" onChange={(washingAreaHa) => setProject({ ...project, washingAreaHa })} />
+                  <NormativeInput compact label="Расход на мойку" value={project.washingRateLPerM2} onChange={(washingRateLPerM2) => setProject({ ...project, washingRateLPerM2 })} />
+                  <NumberField label="Количество моек" value={project.washingCountPerYear} step="1" unit="раз/год" onChange={(washingCountPerYear) => setProject({ ...project, washingCountPerYear })} />
+                  <NormativeInput compact label="Коэффициент мойки" value={project.washingRunoffCoeff} onChange={(washingRunoffCoeff) => setProject({ ...project, washingRunoffCoeff })} />
+                </div>
+              </div>
+            </div>
+          </SectionCard>
+
+          <SectionCard step="4" title="Дождевой расход и объем на очистку" note="Параметры расчетного дождя, времени протекания и площади, направляемой на очистку.">
+            <div className="subsection-grid">
+              <div className="subsection-box">
+                <h3>Расход в коллекторе</h3>
+                <div className="dense-grid three-columns">
+                  <NumberField label="Площадь участка" value={project.rainFlow.areaHa} unit="га" onChange={(areaHa) => setProject({ ...project, rainFlow: { ...project.rainFlow, areaHa } })} />
+                  <NormativeInput compact label="q20" value={project.rainFlow.q20} onChange={(q20) => setProject({ ...project, rainFlow: { ...project.rainFlow, q20 } })} />
+                  <NormativeInput compact label="P" value={project.rainFlow.p} onChange={(p) => setProject({ ...project, rainFlow: { ...project.rainFlow, p } })} />
+                  <NormativeInput compact label="n" value={project.rainFlow.n} onChange={(n) => setProject({ ...project, rainFlow: { ...project.rainFlow, n } })} />
+                  <NormativeInput compact label="mr" value={project.rainFlow.mr} onChange={(mr) => setProject({ ...project, rainFlow: { ...project.rainFlow, mr } })} />
+                  <NormativeInput compact label="gamma" value={project.rainFlow.gamma} onChange={(gamma) => setProject({ ...project, rainFlow: { ...project.rainFlow, gamma } })} />
+                  <NormativeInput compact label="Zmid" value={project.rainFlow.zMid} onChange={(zMid) => setProject({ ...project, rainFlow: { ...project.rainFlow, zMid } })} />
+                  <NormativeInput compact label="tcon" value={project.rainFlow.tConMin} onChange={(tConMin) => setProject({ ...project, rainFlow: { ...project.rainFlow, tConMin } })} />
+                  <NormativeInput compact label="tcan" value={project.rainFlow.tCanMin} onChange={(tCanMin) => setProject({ ...project, rainFlow: { ...project.rainFlow, tCanMin } })} />
+                  <NumberField label="Длина трубы" value={project.rainFlow.pipeLengthM} step="0.01" unit="м" onChange={(pipeLengthM) => setProject({ ...project, rainFlow: { ...project.rainFlow, pipeLengthM } })} />
+                  <NumberField label="Скорость" value={project.rainFlow.pipeVelocityMS} step="0.01" unit="м/с" onChange={(pipeVelocityMS) => setProject({ ...project, rainFlow: { ...project.rainFlow, pipeVelocityMS } })} />
+                </div>
+              </div>
+
+              <div className="subsection-box">
+                <h3>Очистка дождевого стока</h3>
+                <div className="dense-grid two-columns">
+                  <NumberField label="Площадь на очистку" value={projectForCalc.treatment.rainTreatmentAreaHa} unit="га" readOnly onChange={() => undefined} />
+                  <NormativeInput compact label="ha, слой дождя" value={project.climate.haRainTreatmentMm} onChange={(haRainTreatmentMm) => setProject({ ...project, climate: { ...project.climate, haRainTreatmentMm } })} />
+                  <NormativeInput compact label="ψ очистки" value={projectForCalc.treatment.rainTreatmentCoeff} onChange={(rainTreatmentCoeff) => setProject(updateTreatment(project, { rainTreatmentCoeff }))} />
+                  <NormativeInput compact label="Доля загрязненного объема" value={project.treatment.pollutedRainFraction} onChange={(pollutedRainFraction) => setProject(updateTreatment(project, { pollutedRainFraction }))} />
+                </div>
+                <p className="compact-note">Площадь на очистку и ψ пересчитываются по покрытиям с признаком «очистка».</p>
+              </div>
+            </div>
+          </SectionCard>
+
+          <SectionCard step="5" title="Очистные сооружения и резервуар" note="Периоды переработки, технологические перерывы и проверка рабочего объема резервуара.">
+            <div className="dense-grid three-columns">
+              <NumberField label="Переработка дождя" value={project.treatment.rainProcessingHours} step="1" unit="ч" onChange={(rainProcessingHours) => setProject(updateTreatment(project, { rainProcessingHours }))} />
+              <NumberField label="Переработка талого стока" value={project.treatment.meltProcessingHours} step="1" unit="ч" onChange={(meltProcessingHours) => setProject(updateTreatment(project, { meltProcessingHours }))} />
+              <NumberField label="Отстаивание" value={project.treatment.settlingHours} step="1" unit="ч" onChange={(settlingHours) => setProject(updateTreatment(project, { settlingHours }))} />
+              <NumberField label="Технологические перерывы" value={project.treatment.technicalBreakHours} step="1" unit="ч" onChange={(technicalBreakHours) => setProject(updateTreatment(project, { technicalBreakHours }))} />
+              <NumberField label="Рабочий объем резервуара" value={project.treatment.reservoirWorkingVolumeM3} step="0.1" unit="м³" onChange={(reservoirWorkingVolumeM3) => setProject(updateTreatment(project, { reservoirWorkingVolumeM3 }))} />
+              <NormativeInput compact label="Запас резервуара" value={project.treatment.reservoirReservePercent} onChange={(reservoirReservePercent) => setProject(updateTreatment(project, { reservoirReservePercent }))} />
+              <label className="field compact-field select-field">
+                <span className="field-label">Режим резервуара</span>
+                <select
+                  value={project.treatment.reservoirMode}
+                  onChange={(event) => setProject(updateTreatment(project, { reservoirMode: event.target.value as TreatmentInput['reservoirMode'] }))}
+                >
+                  <option value="regulation-only">Только регулирование</option>
+                  <option value="regulation-and-settling">Регулирование + осветление</option>
+                </select>
+              </label>
+            </div>
+          </SectionCard>
         </div>
+
         <aside className="right-column">
           <ResultsPanel results={results} />
           <ValidationPanel issues={issues} />
+          <section className="card actions-card">
+            <h2>Действия</h2>
+            <button type="button" className="primary-button wide" onClick={scrollToResults}>Пересчитать</button>
+            <button type="button" className="secondary-button wide" onClick={() => window.print()}>Печатный лист</button>
+          </section>
         </aside>
       </div>
 
