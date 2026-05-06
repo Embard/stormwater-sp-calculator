@@ -1,0 +1,63 @@
+[
+  {
+    "placeId": "kozenki-mo",
+    "stationName": "Климатические параметры для тестового примера Козенки",
+    "stationDistanceKm": 0,
+    "hdWarmPeriodMm": {
+      "value": 443,
+      "unit": "мм",
+      "sourceId": "sp32-2018-izm1-5",
+      "basis": "manual",
+      "justification": "Тестовое значение из ТЗ; перед применением проверить по действующим таблицам СП."
+    },
+    "htColdPeriodMm": {
+      "value": 187,
+      "unit": "мм",
+      "sourceId": "sp32-2018-izm1-5",
+      "basis": "manual",
+      "justification": "Тестовое значение из ТЗ; перед применением проверить по действующим таблицам СП."
+    },
+    "q20": {
+      "value": 80,
+      "unit": "л/(с·га)",
+      "sourceId": "sp32-2018-izm1-5",
+      "basis": "manual",
+      "justification": "Демонстрационное значение. Заменить по таблице дождевого района."
+    },
+    "n": {
+      "value": 0.67,
+      "unit": "-",
+      "sourceId": "sp32-2018-izm1-5",
+      "basis": "manual",
+      "justification": "Демонстрационное значение. Заменить по таблице дождевого района."
+    },
+    "mr": {
+      "value": 150,
+      "unit": "-",
+      "sourceId": "sp32-2018-izm1-5",
+      "basis": "manual",
+      "justification": "Демонстрационное значение. Заменить по таблице дождевого района."
+    },
+    "gamma": {
+      "value": 1.54,
+      "unit": "-",
+      "sourceId": "sp32-2018-izm1-5",
+      "basis": "manual",
+      "justification": "Демонстрационное значение. Заменить по таблице дождевого района."
+    },
+    "haRainTreatmentMm": {
+      "value": 10,
+      "unit": "мм",
+      "sourceId": "sp32-2018-izm1-5",
+      "basis": "manual",
+      "justification": "Уточнить по нормативной методике для расчетного дождя на очистку."
+    },
+    "hcMeltTenHourMm": {
+      "value": 20,
+      "unit": "мм",
+      "sourceId": "sp32-2018-izm1-5",
+      "basis": "manual",
+      "justification": "Тестовое значение из ТЗ; перед применением проверить по действующим таблицам СП."
+    }
+  }
+]
