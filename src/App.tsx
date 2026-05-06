@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Calculator, FileText } from 'lucide-react';
 import './styles/app.css';
 import sourcesData from './data/sources.json';
@@ -12,6 +12,7 @@ import { ResultsPanel } from './components/ResultsPanel';
 import { SurfaceTable } from './components/SurfaceTable';
 import { ValidationPanel } from './components/ValidationPanel';
 import { buildSurfaceFromTemplate } from './data/surfaceCatalog';
+import { formatNumericInput, normalizeNumericInput, parseNumericInput } from './utils/numberInput';
 import { downloadWordReport } from './utils/wordReport';
 import type { ClimateParameters, NormativeValue, ProjectInput, SourceRef, TreatmentInput } from './types';
 
@@ -63,7 +64,8 @@ const initialProject: ProjectInput = {
     rainTreatmentCoeffScopeAreaHa: 1.8697,
     pollutedRainFraction: { value: 1, unit: '-', sourceId, basis: 'manual', justification: 'Принято для демонстрационного примера.' },
     rainProcessingHours: 24,
-    meltProcessingHours: 48,
+    meltProcessingHours: 24,
+    meltConsecutiveDays: 2,
     settlingHours: 0,
     technicalBreakHours: 0,
     reservoirWorkingVolumeM3: 350,
@@ -104,30 +106,34 @@ type NumberFieldProps = {
   showSlider?: boolean;
 };
 
-function parseInputNumber(raw: string): number {
-  const normalized = raw.replace(',', '.').replace(/^(-?)0+(?=\d)/, '$1');
-  const value = Number(normalized);
-  return Number.isFinite(value) ? value : 0;
-}
-
 function NumberField({ label, value, onChange, step = '0.0001', unit, readOnly = false, min, max, showSlider = false }: NumberFieldProps) {
+  const [textValue, setTextValue] = useState(formatNumericInput(value));
   const hasRange = min !== undefined && max !== undefined;
   const isOutOfRange = hasRange && (value < min! || value > max!);
   const hasSlider = showSlider && hasRange && min !== max && !readOnly;
+
+  useEffect(() => {
+    setTextValue(formatNumericInput(value));
+  }, [value]);
+
+  const commitText = (raw: string) => {
+    const normalized = normalizeNumericInput(raw);
+    setTextValue(normalized);
+    onChange(parseNumericInput(normalized));
+  };
 
   return (
     <label className={`field compact-field ${isOutOfRange ? 'out-of-range' : ''}`}>
       <span className="field-label">{label}</span>
       <div className="input-row">
         <input
-          type="number"
-          step={step}
-          min={min}
-          max={max}
-          value={value}
+          type="text"
+          inputMode="decimal"
+          value={textValue}
           readOnly={readOnly}
           onFocus={(event) => event.currentTarget.select()}
-          onChange={(event) => onChange(parseInputNumber(event.target.value))}
+          onChange={(event) => commitText(event.target.value)}
+          onBlur={() => setTextValue(formatNumericInput(value))}
         />
         {unit ? <span className="unit">{unit}</span> : null}
       </div>
@@ -140,7 +146,7 @@ function NumberField({ label, value, onChange, step = '0.0001', unit, readOnly =
           max={max}
           step={step}
           value={value}
-          onChange={(event) => onChange(parseInputNumber(event.target.value))}
+          onChange={(event) => commitText(event.target.value)}
         />
       ) : null}
     </label>
@@ -321,6 +327,7 @@ export default function App() {
             <div className="dense-grid three-columns">
               <NumberField label="Переработка дождя" value={project.treatment.rainProcessingHours} step="1" unit="ч" onChange={(rainProcessingHours) => setProject(updateTreatment(project, { rainProcessingHours }))} />
               <NumberField label="Переработка талого стока" value={project.treatment.meltProcessingHours} step="1" unit="ч" onChange={(meltProcessingHours) => setProject(updateTreatment(project, { meltProcessingHours }))} />
+              <NumberField label="Расчетных суток снеготаяния" value={project.treatment.meltConsecutiveDays} step="1" min={1} max={10} showSlider unit="сут" onChange={(meltConsecutiveDays) => setProject(updateTreatment(project, { meltConsecutiveDays }))} />
               <NumberField label="Отстаивание" value={project.treatment.settlingHours} step="1" unit="ч" onChange={(settlingHours) => setProject(updateTreatment(project, { settlingHours }))} />
               <NumberField label="Технологические перерывы" value={project.treatment.technicalBreakHours} step="1" unit="ч" onChange={(technicalBreakHours) => setProject(updateTreatment(project, { technicalBreakHours }))} />
               <NumberField label="Рабочий объем резервуара" value={project.treatment.reservoirWorkingVolumeM3} step="0.1" unit="м³" onChange={(reservoirWorkingVolumeM3) => setProject(updateTreatment(project, { reservoirWorkingVolumeM3 }))} />

@@ -50,6 +50,9 @@ export function ResultsPanel({ results }: Props) {
           <Metric label="Параметр A" value={`${formatNumber(results.rainFlow.parameterA, 2)}`} />
           <Metric label="Объем дождя на очистку" value={`${formatNumber(roundVolume(results.treatment.rainTreatmentVolumeM3), 1)} м³`} />
           <Metric label="Суточный талый сток" value={`${formatNumber(roundVolume(results.treatment.dailyMeltVolumeM3), 1)} м³/сут`} />
+          <Metric label="Остаток талого стока за сутки" value={`${formatNumber(roundVolume(results.treatment.meltResidualPerDayM3), 1)} м³`} />
+          <Metric label="Рабочий объем по талому стоку" value={`${formatNumber(roundVolume(results.treatment.requiredMeltWorkingVolumeM3), 1)} м³`} />
+          <Metric label="Расчетный рабочий объем резервуара" value={`${formatNumber(roundVolume(results.treatment.requiredReservoirWorkingVolumeM3), 1)} м³`} />
           <Metric label="Производительность очистных" value={`${formatNumber(results.treatment.selectedTreatmentCapacityM3PerH, 2)} м³/ч`} />
           <Metric label="Полный объем резервуара" value={`${formatNumber(roundVolume(results.treatment.requiredReservoirFullVolumeM3), 1)} м³`} />
         </div>

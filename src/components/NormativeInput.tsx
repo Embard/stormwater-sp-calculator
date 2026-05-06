@@ -1,5 +1,6 @@
-import type { ChangeEvent } from 'react';
+import { useEffect, useState } from 'react';
 import type { NormativeValue } from '../types';
+import { formatNumericInput, normalizeNumericInput, parseNumericInput } from '../utils/numberInput';
 
 type Props = {
   label?: string;
@@ -24,14 +25,19 @@ export function NormativeInput({
   showSlider = true,
   readOnly = false
 }: Props) {
+  const [textValue, setTextValue] = useState(formatNumericInput(value.value));
   const hasRange = value.min !== undefined && value.max !== undefined;
   const hasAdjustableRange = hasRange && value.min !== value.max;
   const outOfRange = hasRange && ((value.min !== undefined && value.value < value.min) || (value.max !== undefined && value.value > value.max));
 
-  const handleNumberChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const normalized = event.target.value.replace(',', '.').replace(/^(-?)0+(?=\d)/, '$1');
-    const next = normalized === '' ? 0 : Number(normalized);
-    onChange({ ...value, value: Number.isFinite(next) ? next : value.value });
+  useEffect(() => {
+    setTextValue(formatNumericInput(value.value));
+  }, [value.value]);
+
+  const commitText = (raw: string) => {
+    const normalized = normalizeNumericInput(raw);
+    setTextValue(normalized);
+    onChange({ ...value, value: parseNumericInput(normalized) });
   };
 
   return (
@@ -39,12 +45,13 @@ export function NormativeInput({
       {label ? <span className="field-label">{label}</span> : null}
       <div className="input-row">
         <input
-          type="number"
-          step={stepFor(value.value)}
-          value={value.value}
+          type="text"
+          inputMode="decimal"
+          value={textValue}
           readOnly={readOnly}
           onFocus={(event) => event.currentTarget.select()}
-          onChange={handleNumberChange}
+          onChange={(event) => commitText(event.target.value)}
+          onBlur={() => setTextValue(formatNumericInput(value.value))}
         />
         {value.unit !== '-' ? <span className="unit">{value.unit}</span> : null}
       </div>
@@ -63,7 +70,7 @@ export function NormativeInput({
           max={value.max}
           step={stepFor(value.value)}
           value={value.value}
-          onChange={(event) => onChange({ ...value, value: Number(event.target.value) })}
+          onChange={(event) => onChange({ ...value, value: parseNumericInput(event.target.value) })}
           aria-label={label ?? 'Нормативное значение'}
         />
       ) : null}

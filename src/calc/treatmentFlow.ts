@@ -17,6 +17,28 @@ function processingCapacity(volumeM3: number, periodHours: number, settlingHours
   return volumeM3 / activeHours;
 }
 
+export function requiredMeltWorkingVolumeM3(args: {
+  dailyMeltVolumeM3: number;
+  meltProcessingHours: number;
+  consecutiveDays: number;
+}): { requiredVolumeM3: number; residualPerDayM3: number } {
+  const dailyVolume = Math.max(0, args.dailyMeltVolumeM3);
+  const periodHours = Math.max(0, args.meltProcessingHours);
+  const days = Math.max(1, Math.floor(args.consecutiveDays || 1));
+
+  if (dailyVolume <= 0 || periodHours <= 24 || days <= 1) {
+    return { requiredVolumeM3: dailyVolume, residualPerDayM3: 0 };
+  }
+
+  const residualPerDay = dailyVolume * (1 - 24 / periodHours);
+  const requiredVolume = dailyVolume + (days - 1) * residualPerDay;
+
+  return {
+    requiredVolumeM3: requiredVolume,
+    residualPerDayM3: residualPerDay
+  };
+}
+
 export function calculateTreatment(args: {
   treatment: TreatmentInput;
   haRainTreatmentMm: number;
@@ -54,8 +76,15 @@ export function calculateTreatment(args: {
     args.treatment.technicalBreakHours
   );
 
+  const meltStorage = requiredMeltWorkingVolumeM3({
+    dailyMeltVolumeM3: meltDailyVolume,
+    meltProcessingHours: args.treatment.meltProcessingHours,
+    consecutiveDays: args.treatment.meltConsecutiveDays
+  });
+
+  const requiredWorkingVolume = Math.max(rainVolume, meltStorage.requiredVolumeM3);
   const reserveFactor = 1 + args.treatment.reservoirReservePercent.value / 100;
-  const requiredReservoirFullVolume = Math.max(rainVolume, meltDailyVolume) * reserveFactor;
+  const requiredReservoirFullVolume = requiredWorkingVolume * reserveFactor;
 
   return {
     rainTreatmentVolumeM3: rainVolume,
@@ -63,8 +92,12 @@ export function calculateTreatment(args: {
     rainTreatmentCapacityM3PerH: rainCapacity,
     meltTreatmentCapacityM3PerH: meltCapacity,
     selectedTreatmentCapacityM3PerH: Math.max(rainCapacity, meltCapacity),
+    meltResidualPerDayM3: meltStorage.residualPerDayM3,
+    requiredMeltWorkingVolumeM3: meltStorage.requiredVolumeM3,
+    requiredReservoirWorkingVolumeM3: requiredWorkingVolume,
+    reservoirControlCase: meltStorage.requiredVolumeM3 >= rainVolume ? 'melt' : 'rain',
     requiredReservoirFullVolumeM3: requiredReservoirFullVolume,
     reservoirIsEnoughForRain: args.treatment.reservoirWorkingVolumeM3 >= rainVolume,
-    reservoirIsEnoughForMelt: args.treatment.reservoirWorkingVolumeM3 >= meltDailyVolume
+    reservoirIsEnoughForMelt: args.treatment.reservoirWorkingVolumeM3 >= meltStorage.requiredVolumeM3
   };
 }

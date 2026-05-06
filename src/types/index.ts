@@ -83,6 +83,7 @@ export type TreatmentInput = {
   pollutedRainFraction: NormativeValue;
   rainProcessingHours: number;
   meltProcessingHours: number;
+  meltConsecutiveDays: number;
   settlingHours: number;
   technicalBreakHours: number;
   reservoirWorkingVolumeM3: number;
@@ -130,6 +131,10 @@ export type TreatmentResult = {
   rainTreatmentCapacityM3PerH: number;
   meltTreatmentCapacityM3PerH: number;
   selectedTreatmentCapacityM3PerH: number;
+  meltResidualPerDayM3: number;
+  requiredMeltWorkingVolumeM3: number;
+  requiredReservoirWorkingVolumeM3: number;
+  reservoirControlCase: 'rain' | 'melt';
   requiredReservoirFullVolumeM3: number;
   reservoirIsEnoughForRain: boolean;
   reservoirIsEnoughForMelt: boolean;

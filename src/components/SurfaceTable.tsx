@@ -3,6 +3,7 @@ import { Plus, X } from 'lucide-react';
 import { NormativeInput } from './NormativeInput';
 import { applySurfaceTemplate, buildSurfaceFromTemplate, getSurfaceTemplate, SURFACE_TEMPLATES } from '../data/surfaceCatalog';
 import type { SurfaceItem } from '../types';
+import { formatNumericInput, parseNumericInput } from '../utils/numberInput';
 import { formatNumber } from '../utils/rounding';
 
 type Props = {
@@ -17,11 +18,7 @@ function isSliderNeeded(surface: SurfaceItem, key: 'annualRainCoeff' | 'designRa
   return coeff.min !== undefined && coeff.max !== undefined && coeff.min !== coeff.max;
 }
 
-function parseInputNumber(raw: string): number {
-  const normalized = raw.replace(',', '.').replace(/^(-?)0+(?=\d)/, '$1');
-  const value = Number(normalized);
-  return Number.isFinite(value) ? value : 0;
-}
+
 
 export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChange }: Props) {
   const updateSurface = (id: string, patch: Partial<SurfaceItem>) => {
@@ -44,11 +41,11 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
           <label className="field compact-field total-area-field">
             <span className="field-label">Общая площадь, га</span>
             <input
-              type="number"
-              step="0.0001"
-              value={totalAreaHa}
+              type="text"
+              inputMode="decimal"
+              value={formatNumericInput(totalAreaHa)}
               onFocus={(event) => event.currentTarget.select()}
-              onChange={(event) => onTotalAreaChange(parseInputNumber(event.target.value))}
+              onChange={(event) => onTotalAreaChange(parseNumericInput(event.target.value))}
             />
           </label>
           <button
@@ -91,11 +88,11 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
               <div className="surface-cell">
                 <label className="field compact-field cell-field">
                   <input
-                    type="number"
-                    step="0.0001"
-                    value={surface.areaHa}
+                    type="text"
+                    inputMode="decimal"
+                    value={formatNumericInput(surface.areaHa)}
                     onFocus={(event) => event.currentTarget.select()}
-                    onChange={(event) => updateSurface(surface.id, { areaHa: parseInputNumber(event.target.value) })}
+                    onChange={(event) => updateSurface(surface.id, { areaHa: parseNumericInput(event.target.value) })}
                   />
                 </label>
               </div>

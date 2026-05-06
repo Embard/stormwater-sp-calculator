@@ -168,13 +168,49 @@ export function validateProject(input: ProjectInput): ValidationIssue[] {
     );
   }
 
-  if (input.treatment.meltProcessingHours === 48) {
+  if (input.treatment.meltProcessingHours <= 0) {
     issues.push(
       issue(
-        'melt-processing-48-hours',
-        'warning',
-        'Период переработки талого стока принят 48 ч',
-        'Такое значение допускается только при расчетном подтверждении рабочего объема резервуара.',
+        'melt-processing-non-positive',
+        'error',
+        'Период переработки талого стока должен быть больше нуля',
+        'Введите положительное значение периода переработки талого стока.',
+        'treatment.meltProcessingHours'
+      )
+    );
+  }
+
+  if (input.treatment.meltConsecutiveDays < 1) {
+    issues.push(
+      issue(
+        'melt-consecutive-days-less-than-one',
+        'error',
+        'Количество расчетных суток снеготаяния меньше 1',
+        'Для проверки накопления талого стока нужно принять не менее одних расчетных суток.',
+        'treatment.meltConsecutiveDays'
+      )
+    );
+  }
+
+  if (input.treatment.rainProcessingHours - input.treatment.settlingHours - input.treatment.technicalBreakHours <= 0) {
+    issues.push(
+      issue(
+        'rain-processing-active-hours-zero',
+        'error',
+        'Нет активного времени переработки дождевого стока',
+        'Период переработки дождевого стока должен быть больше суммы времени отстаивания и технологических перерывов.',
+        'treatment.rainProcessingHours'
+      )
+    );
+  }
+
+  if (input.treatment.meltProcessingHours - input.treatment.settlingHours - input.treatment.technicalBreakHours <= 0) {
+    issues.push(
+      issue(
+        'melt-processing-active-hours-zero',
+        'error',
+        'Нет активного времени переработки талого стока',
+        'Период переработки талого стока должен быть больше суммы времени отстаивания и технологических перерывов.',
         'treatment.meltProcessingHours'
       )
     );
