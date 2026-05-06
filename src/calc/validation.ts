@@ -48,6 +48,7 @@ function validateNormativeValue(name: string, value: NormativeValue, field: stri
 function collectSurfaceValues(surfaces: SurfaceItem[]): Array<[string, NormativeValue, string]> {
   return surfaces.flatMap((surface) => [
     [`${surface.name}: ψд годовой`, surface.annualRainCoeff, `surface-${surface.id}-annualRainCoeff`] as [string, NormativeValue, string],
+    [`${surface.name}: Zi`, surface.coverCoeff, `surface-${surface.id}-coverCoeff`] as [string, NormativeValue, string],
     [`${surface.name}: Ψ расчетный`, surface.designRainCoeff, `surface-${surface.id}-designRainCoeff`] as [string, NormativeValue, string]
   ]);
 }
@@ -137,6 +138,20 @@ export function validateProject(input: ProjectInput): ValidationIssue[] {
         'Коэффициент неравномерности снеготаяния принят 1,0',
         'По умолчанию принимают 0,8. Для значения 1,0 нужно добавить обоснование.',
         'meltUnevennessCoeff'
+      )
+    );
+  }
+
+
+
+  if (input.washingCountPerYear < 100 || input.washingCountPerYear > 150) {
+    issues.push(
+      issue(
+        'washing-count-out-of-range',
+        'error',
+        'Количество моек вне рекомендуемого диапазона',
+        `Принято ${input.washingCountPerYear} раз/год. Для средней полосы РФ применяется диапазон 100–150 раз/год.`,
+        'washingCountPerYear'
       )
     );
   }
