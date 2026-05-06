@@ -510,3 +510,67 @@ input[type="checkbox"] {
     margin-right: 16px;
   }
 }
+
+/* fix8: clearer engineering hints and links */
+.legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.legend-row span {
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+}
+.source-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 10px;
+}
+.source-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--primary-dark);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.source-links a:hover {
+  border-color: var(--primary);
+}
+.small-button {
+  height: 34px;
+  width: fit-content;
+  padding: 0 12px;
+}
+.warning-note {
+  color: var(--warning);
+}
+.manual-place {
+  border-color: rgba(183, 131, 45, 0.55);
+  background: #fffaf0;
+}
+.surface-grid-table {
+  grid-template-columns: minmax(230px, 1.9fr) minmax(105px, 0.8fr) minmax(175px, 1.3fr) minmax(175px, 1.3fr) 70px 92px 88px 38px;
+}
+.surface-grid-header.center {
+  line-height: 1.15;
+}
+@media (max-width: 1180px) {
+  .surface-grid-table {
+    grid-template-columns: minmax(210px, 1.55fr) minmax(95px, 0.7fr) minmax(150px, 1.1fr) minmax(150px, 1.1fr) 58px 76px 74px 34px;
+  }
+  .surface-grid-header {
+    font-size: 11px;
+  }
+}

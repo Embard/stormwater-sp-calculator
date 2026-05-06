@@ -36,6 +36,11 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
           <span className="step-label">2</span>
           <h2>Покрытия и расчетная площадь</h2>
           <p className="section-subtitle">ψд — годовой коэффициент. Ψ — постоянный коэффициент для расчетного дождя и очистки.</p>
+          <div className="legend-row">
+            <span><b>Мойка</b> — покрытие входит в площадь поливомоечных вод.</span>
+            <span><b>Уборка снега</b> — покрытие входит в площадь, очищаемую от снега.</span>
+            <span><b>На очистку</b> — сток с покрытия идет на очистные.</span>
+          </div>
         </div>
         <div className="surface-head-actions">
           <label className="field compact-field total-area-field">
@@ -63,9 +68,9 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
         <div className="surface-grid-header">Площадь, га</div>
         <div className="surface-grid-header">ψд годовой</div>
         <div className="surface-grid-header">Ψ расчетный</div>
-        <div className="surface-grid-header center">Мойка</div>
-        <div className="surface-grid-header center">Снег</div>
-        <div className="surface-grid-header center">На очистку</div>
+        <div className="surface-grid-header center" title="Покрытие входит в площадь поливомоечных вод">Мойка</div>
+        <div className="surface-grid-header center" title="Покрытие входит в площадь уборки снега">Уборка снега</div>
+        <div className="surface-grid-header center" title="Сток с покрытия направляется на очистные сооружения">На очистку</div>
         <div className="surface-grid-header"></div>
 
         {surfaces.map((surface) => {
@@ -118,6 +123,7 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
               <div className="surface-cell center">
                 <input
                   type="checkbox"
+                  title="Площадь покрытия попадет в расчет поливомоечных вод"
                   checked={surface.isWashed}
                   disabled={!surface.isHardSurface}
                   onChange={(event) => updateSurface(surface.id, { isWashed: event.target.checked })}
@@ -128,6 +134,7 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
               <div className="surface-cell center">
                 <input
                   type="checkbox"
+                  title="Площадь покрытия попадет в расчет коэффициента Ky"
                   checked={surface.isCleanedFromSnow}
                   onChange={(event) => updateSurface(surface.id, { isCleanedFromSnow: event.target.checked })}
                   aria-label="Учитывать покрытие в площади уборки снега"
@@ -137,6 +144,7 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
               <div className="surface-cell center">
                 <input
                   type="checkbox"
+                  title="Площадь покрытия попадет в расчет дождевого объема на очистку"
                   checked={surface.routedToTreatment}
                   onChange={(event) => updateSurface(surface.id, { routedToTreatment: event.target.checked })}
                   aria-label="Направить покрытие на очистные сооружения"
