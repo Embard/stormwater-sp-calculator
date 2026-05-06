@@ -27,10 +27,10 @@ function IssueCard({ item }: { item: ValidationIssue }) {
 }
 
 export function ValidationPanel({ issues }: Props) {
-  const errors = issues.filter((issue) => issue.severity === 'error').length;
-  const warnings = issues.filter((issue) => issue.severity === 'warning').length;
-  const info = issues.length - errors - warnings;
-  const sortedIssues = [...issues].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+  const visibleIssues = issues.filter((issue) => issue.severity !== 'info');
+  const errors = visibleIssues.filter((issue) => issue.severity === 'error').length;
+  const warnings = visibleIssues.filter((issue) => issue.severity === 'warning').length;
+  const sortedIssues = [...visibleIssues].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
   const importantIssues = sortedIssues.slice(0, 3);
   const remainingIssues = sortedIssues.slice(3);
 
@@ -39,12 +39,12 @@ export function ValidationPanel({ issues }: Props) {
       <div className="section-head compact-head">
         <div>
           <h2>Проверки методики</h2>
-          <p className="section-subtitle">Ошибки: <strong>{errors}</strong> · Предупреждения: <strong>{warnings}</strong> · Инфо: <strong>{info}</strong></p>
+          <p className="section-subtitle">Ошибки: <strong>{errors}</strong> · Предупреждения: <strong>{warnings}</strong></p>
         </div>
       </div>
 
-      {issues.length === 0 ? (
-        <p className="ok">Критических методических замечаний не найдено.</p>
+      {visibleIssues.length === 0 ? (
+        <p className="ok">Критических и важных предупреждений не найдено.</p>
       ) : (
         <div className="issues compact-issues">
           {importantIssues.map((item) => <IssueCard key={item.id} item={item} />)}
@@ -53,7 +53,7 @@ export function ValidationPanel({ issues }: Props) {
 
       {remainingIssues.length > 0 ? (
         <details className="details-panel validation-details">
-          <summary>Показать все проверки ({issues.length})</summary>
+          <summary>Показать все предупреждения ({visibleIssues.length})</summary>
           <div className="issues">
             {remainingIssues.map((item) => <IssueCard key={item.id} item={item} />)}
           </div>
