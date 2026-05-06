@@ -1,6 +1,9 @@
-import type { NormativeValue, SurfaceItem } from '../types';
-import { roundArea } from '../utils/rounding';
+import { Fragment } from 'react';
+import { Plus, X } from 'lucide-react';
 import { NormativeInput } from './NormativeInput';
+import { applySurfaceTemplate, buildSurfaceFromTemplate, getSurfaceTemplate, SURFACE_TEMPLATES } from '../data/surfaceCatalog';
+import type { SurfaceItem } from '../types';
+import { formatNumber } from '../utils/rounding';
 
 type Props = {
   surfaces: SurfaceItem[];
@@ -9,136 +12,143 @@ type Props = {
   onChange: (surfaces: SurfaceItem[]) => void;
 };
 
-const sourceId = 'sp32-2018-izm1-5';
-
-function coeff(value: number, min: number, max: number): NormativeValue {
-  return { value, min, max, default: value, unit: '-', sourceId, basis: 'normative-range' };
+function isSliderNeeded(surface: SurfaceItem, key: 'annualRainCoeff' | 'designRainCoeff') {
+  const coeff = surface[key];
+  return coeff.min !== undefined && coeff.max !== undefined && coeff.min !== coeff.max;
 }
 
 export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChange }: Props) {
-  const update = (id: string, patch: Partial<SurfaceItem>) => {
+  const updateSurface = (id: string, patch: Partial<SurfaceItem>) => {
     onChange(surfaces.map((surface) => (surface.id === id ? { ...surface, ...patch } : surface)));
   };
 
-  const addSurface = () => {
-    const nextSurface: SurfaceItem = {
-      id: `custom-${Date.now()}`,
-      name: 'Новое покрытие',
-      kind: 'custom',
-      areaHa: 0,
-      annualRainCoeff: coeff(0.5, 0, 1),
-      designRainCoeff: coeff(0.5, 0, 1),
-      isHardSurface: false,
-      isWashed: false,
-      isCleanedFromSnow: false,
-      routedToTreatment: false
-    };
-    onChange([...surfaces, nextSurface]);
-  };
-
-  const removeSurface = (id: string) => {
-    if (surfaces.length <= 1) return;
-    onChange(surfaces.filter((surface) => surface.id !== id));
-  };
-
-  const total = surfaces.reduce((sum, surface) => sum + surface.areaHa, 0);
-  const delta = Math.abs(total - totalAreaHa);
-  const isAreaMismatch = delta > 0.0001;
+  const totalSurfaceArea = surfaces.reduce((sum, surface) => sum + surface.areaHa, 0);
 
   return (
     <section className="card section-card">
-      <div className="section-head surface-head">
+      <div className="surface-head-row">
         <div>
           <span className="step-label">2</span>
           <h2>Покрытия и расчетная площадь</h2>
-          <p className="section-subtitle">ψ годового стока применяется к годовым объемам, ψ расчетного дождя — к дождевому расходу и очистке.</p>
+          <p className="section-subtitle">
+            ψд — годовой коэффициент по таблице 7. Ψ — коэффициент для расчетного дождя и очистки по таблице 13.
+          </p>
         </div>
         <div className="surface-head-actions">
           <label className="field compact-field total-area-field">
             <span className="field-label">Общая площадь, га</span>
-            <input type="number" step="0.0001" value={totalAreaHa} onChange={(event) => onTotalAreaChange(Number(event.target.value))} />
+            <input
+              type="number"
+              step="0.0001"
+              value={totalAreaHa}
+              onFocus={(event) => event.currentTarget.select()}
+              onChange={(event) => onTotalAreaChange(Number(event.target.value))}
+            />
           </label>
-          <button type="button" className="secondary-button" onClick={addSurface}>Добавить покрытие</button>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => onChange([...surfaces, buildSurfaceFromTemplate(`surface-${Date.now()}`, 'asphalt', 0)])}
+          >
+            <Plus size={16} /> Добавить покрытие
+          </button>
         </div>
       </div>
 
-      <div className="surface-table-wrap">
-        <table className="surface-table dense-table">
-          <colgroup>
-            <col className="col-name" />
-            <col className="col-area" />
-            <col className="col-coeff" />
-            <col className="col-coeff" />
-            <col className="col-check" />
-            <col className="col-check" />
-            <col className="col-action" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Покрытие</th>
-              <th>Площадь, га</th>
-              <th>ψ годовой</th>
-              <th>ψ расчетный</th>
-              <th>Мойка</th>
-              <th>Очистка</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {surfaces.map((surface) => (
-              <tr key={surface.id}>
-                <td>
-                  <input value={surface.name} onChange={(event) => update(surface.id, { name: event.target.value })} />
-                </td>
-                <td>
-                  <input type="number" step="0.0001" value={surface.areaHa} onChange={(event) => update(surface.id, { areaHa: Number(event.target.value) })} />
-                </td>
-                <td>
-                  <NormativeInput
-                    compact
-                    showSlider
-                    value={surface.annualRainCoeff}
-                    onChange={(annualRainCoeff) => update(surface.id, { annualRainCoeff })}
-                  />
-                </td>
-                <td>
-                  <NormativeInput
-                    compact
-                    showSlider
-                    value={surface.designRainCoeff}
-                    onChange={(designRainCoeff) => update(surface.id, { designRainCoeff })}
-                  />
-                </td>
-                <td className="check-cell">
+      <div className="surface-grid-table">
+        <div className="surface-grid-header">Покрытие</div>
+        <div className="surface-grid-header">Площадь, га</div>
+        <div className="surface-grid-header">ψд годовой</div>
+        <div className="surface-grid-header">Ψ расчетный</div>
+        <div className="surface-grid-header center">Мойка</div>
+        <div className="surface-grid-header center">Очистка</div>
+        <div className="surface-grid-header"></div>
+
+        {surfaces.map((surface) => {
+          const template = getSurfaceTemplate(surface.templateId);
+          return (
+            <Fragment key={surface.id}>
+              <div className="surface-cell" key={`${surface.id}-type`}>
+                <label className="field compact-field cell-field">
+                  <select
+                    value={template.id}
+                    onChange={(event) => updateSurface(surface.id, applySurfaceTemplate(surface, event.target.value))}
+                  >
+                    {SURFACE_TEMPLATES.map((option) => (
+                      <option key={option.id} value={option.id}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="surface-cell" key={`${surface.id}-area`}>
+                <label className="field compact-field cell-field">
                   <input
-                    type="checkbox"
-                    checked={surface.isWashed}
-                    onChange={(event) => update(surface.id, { isWashed: event.target.checked, isHardSurface: event.target.checked || surface.isHardSurface })}
-                    aria-label={`Учитывать покрытие ${surface.name} в поливомоечных водах`}
+                    type="number"
+                    step="0.0001"
+                    value={surface.areaHa}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) => updateSurface(surface.id, { areaHa: Number(event.target.value) })}
                   />
-                </td>
-                <td className="check-cell">
-                  <input
-                    type="checkbox"
-                    checked={surface.routedToTreatment}
-                    onChange={(event) => update(surface.id, { routedToTreatment: event.target.checked })}
-                    aria-label={`Направить покрытие ${surface.name} на очистку`}
-                  />
-                </td>
-                <td className="row-action-cell">
-                  <button type="button" className="icon-button" onClick={() => removeSurface(surface.id)} disabled={surfaces.length <= 1} title="Удалить строку">×</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr>
-              <th>Сумма покрытий</th>
-              <th className={isAreaMismatch ? 'area-mismatch' : ''}>{roundArea(total)}</th>
-              <th colSpan={5}>{isAreaMismatch ? `Не совпадает с общей площадью на ${roundArea(delta)} га` : 'Совпадает с общей площадью'}</th>
-            </tr>
-          </tfoot>
-        </table>
+                </label>
+              </div>
+
+              <div className="surface-cell" key={`${surface.id}-annual`}>
+                <NormativeInput
+                  compact
+                  value={surface.annualRainCoeff}
+                  showSlider={isSliderNeeded(surface, 'annualRainCoeff')}
+                  onChange={(annualRainCoeff) => updateSurface(surface.id, { annualRainCoeff })}
+                />
+              </div>
+
+              <div className="surface-cell" key={`${surface.id}-design`}>
+                <NormativeInput
+                  compact
+                  value={surface.designRainCoeff}
+                  showSlider={isSliderNeeded(surface, 'designRainCoeff')}
+                  onChange={(designRainCoeff) => updateSurface(surface.id, { designRainCoeff })}
+                />
+              </div>
+
+              <div className="surface-cell center" key={`${surface.id}-wash`}>
+                <input
+                  type="checkbox"
+                  checked={surface.isWashed}
+                  disabled={!surface.isHardSurface}
+                  onChange={(event) => updateSurface(surface.id, { isWashed: event.target.checked })}
+                  aria-label="Мойка покрытия"
+                />
+              </div>
+
+              <div className="surface-cell center" key={`${surface.id}-treatment`}>
+                <input
+                  type="checkbox"
+                  checked={surface.routedToTreatment}
+                  onChange={(event) => updateSurface(surface.id, { routedToTreatment: event.target.checked })}
+                  aria-label="Направить на очистку"
+                />
+              </div>
+
+              <div className="surface-cell center" key={`${surface.id}-delete`}>
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={() => onChange(surfaces.filter((item) => item.id !== surface.id))}
+                  aria-label="Удалить покрытие"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </Fragment>
+          );
+        })}
+      </div>
+
+      <div className="surface-summary-row">
+        <span>Сумма покрытий</span>
+        <strong>{formatNumber(totalSurfaceArea, 4)} га</strong>
+        <span>{Math.abs(totalSurfaceArea - totalAreaHa) < 0.0001 ? 'Совпадает с общей площадью' : 'Не совпадает с общей площадью'}</span>
       </div>
     </section>
   );
