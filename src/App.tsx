@@ -1,7 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { Calculator, FileText } from 'lucide-react';
 import './styles/app.css';
-import './styles/print.css';
 import sourcesData from './data/sources.json';
 import climateStations from './data/climateStations.json';
 import { calculateProject } from './calc';
@@ -9,11 +8,11 @@ import { weightedCoefficient } from './calc/annualRunoff';
 import { validateProject } from './calc/validation';
 import { NormativeInput } from './components/NormativeInput';
 import { PlaceSearch } from './components/PlaceSearch';
-import { PrintSheet } from './components/PrintSheet';
 import { ResultsPanel } from './components/ResultsPanel';
 import { SurfaceTable } from './components/SurfaceTable';
 import { ValidationPanel } from './components/ValidationPanel';
 import { buildSurfaceFromTemplate } from './data/surfaceCatalog';
+import { downloadWordReport } from './utils/wordReport';
 import type { ClimateParameters, NormativeValue, ProjectInput, SourceRef, TreatmentInput } from './types';
 
 const sourceId = 'sp32-2018-izm1-5';
@@ -34,16 +33,16 @@ const initialProject: ProjectInput = {
   climate: initialClimate,
   totalAreaHa: 6.5213,
   surfaces: [
-    { ...buildSurfaceFromTemplate('driveways', 'asphalt', 1.8697), isWashed: true, routedToTreatment: true },
-    { ...buildSurfaceFromTemplate('lawns', 'lawn', 3.3020) },
-    { ...buildSurfaceFromTemplate('structures', 'roof', 1.3496) }
+    { ...buildSurfaceFromTemplate('driveways', 'asphalt', 1.8697), isWashed: true, isCleanedFromSnow: true, routedToTreatment: true },
+    { ...buildSurfaceFromTemplate('lawns', 'lawn', 3.3020), isCleanedFromSnow: false },
+    { ...buildSurfaceFromTemplate('structures', 'roof', 1.3496), isCleanedFromSnow: true }
   ],
   snowMeltCoeff: { value: 0.7, min: 0.5, max: 0.8, default: 0.7, unit: '-', sourceId, basis: 'normative-range' },
   snowCleanedAreaHa: 3.2193,
   washingAreaHa: 1.8697,
   washingRateLPerM2: { value: 1.2, min: 0.8, max: 1.5, default: 1.2, unit: 'л/м²', sourceId, basis: 'normative-range' },
   washingCountPerYear: 150,
-  washingRunoffCoeff: { value: 0.5, min: 0.5, max: 1, default: 0.5, unit: '-', sourceId, basis: 'normative-range' },
+  washingRunoffCoeff: { value: 0.5, min: 0.5, max: 0.5, default: 0.5, unit: '-', sourceId, basis: 'normative-fixed' },
   meltUnevennessCoeff: { value: 0.8, min: 0.8, max: 1, default: 0.8, unit: '-', sourceId, basis: 'normative-range' },
   rainFlow: {
     areaHa: 1.8697,
@@ -76,18 +75,16 @@ const initialProject: ProjectInput = {
 type SectionCardProps = {
   step: string;
   title: string;
-  note?: string;
   children: ReactNode;
 };
 
-function SectionCard({ step, title, note, children }: SectionCardProps) {
+function SectionCard({ step, title, children }: SectionCardProps) {
   return (
     <section className="card section-card">
       <div className="section-head">
         <div>
           <span className="step-label">{step}</span>
           <h2>{title}</h2>
-          {note ? <p className="section-subtitle">{note}</p> : null}
         </div>
       </div>
       {children}
@@ -102,23 +99,50 @@ type NumberFieldProps = {
   step?: string;
   unit?: string;
   readOnly?: boolean;
+  min?: number;
+  max?: number;
+  showSlider?: boolean;
 };
 
-function NumberField({ label, value, onChange, step = '0.0001', unit, readOnly = false }: NumberFieldProps) {
+function parseInputNumber(raw: string): number {
+  const normalized = raw.replace(',', '.').replace(/^(-?)0+(?=\d)/, '$1');
+  const value = Number(normalized);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function NumberField({ label, value, onChange, step = '0.0001', unit, readOnly = false, min, max, showSlider = false }: NumberFieldProps) {
+  const hasRange = min !== undefined && max !== undefined;
+  const isOutOfRange = hasRange && (value < min! || value > max!);
+  const hasSlider = showSlider && hasRange && min !== max && !readOnly;
+
   return (
-    <label className="field compact-field">
+    <label className={`field compact-field ${isOutOfRange ? 'out-of-range' : ''}`}>
       <span className="field-label">{label}</span>
       <div className="input-row">
         <input
           type="number"
           step={step}
+          min={min}
+          max={max}
           value={value}
           readOnly={readOnly}
           onFocus={(event) => event.currentTarget.select()}
-          onChange={(event) => onChange(Number(event.target.value))}
+          onChange={(event) => onChange(parseInputNumber(event.target.value))}
         />
         {unit ? <span className="unit">{unit}</span> : null}
       </div>
+      {hasRange ? <span className="range-note">Диапазон: {min}–{max}{unit ? ` ${unit}` : ''}</span> : null}
+      {hasSlider ? (
+        <input
+          className="normative-slider"
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(event) => onChange(parseInputNumber(event.target.value))}
+        />
+      ) : null}
     </label>
   );
 }
@@ -149,15 +173,33 @@ export default function App() {
     [project.surfaces]
   );
 
+  const snowCleanedArea = useMemo(
+    () => project.surfaces.filter((surface) => surface.isCleanedFromSnow).reduce((sum, surface) => sum + surface.areaHa, 0),
+    [project.surfaces]
+  );
+
   const calculatedTreatmentCoeff = useMemo(
     () => weightedCoefficient(project.surfaces, 'designRainCoeff', (surface) => surface.routedToTreatment),
     [project.surfaces]
   );
 
+  const calculatedZmid = useMemo(
+    () => weightedCoefficient(project.surfaces, 'coverCoeff', (surface) => surface.routedToTreatment),
+    [project.surfaces]
+  );
+
+  const collectorArea = treatmentArea > 0 ? treatmentArea : project.totalAreaHa;
+
   const projectForCalc = useMemo<ProjectInput>(() => {
     return {
       ...project,
+      snowCleanedAreaHa: snowCleanedArea,
       washingAreaHa: washingArea,
+      rainFlow: {
+        ...project.rainFlow,
+        areaHa: collectorArea,
+        zMid: { ...project.rainFlow.zMid, value: calculatedZmid || project.rainFlow.zMid.value, basis: 'calculated' }
+      },
       treatment: {
         ...project.treatment,
         rainTreatmentAreaHa: treatmentArea,
@@ -169,15 +211,13 @@ export default function App() {
         rainTreatmentCoeffScopeAreaHa: treatmentArea
       }
     };
-  }, [project, treatmentArea, washingArea, calculatedTreatmentCoeff]);
+  }, [project, treatmentArea, washingArea, snowCleanedArea, collectorArea, calculatedTreatmentCoeff, calculatedZmid]);
 
   const results = useMemo(() => calculateProject(projectForCalc), [projectForCalc]);
   const issues = useMemo(() => validateProject(projectForCalc), [projectForCalc]);
   const sources = sourcesData as SourceRef[];
 
-  const scrollToResults = () => {
-    document.getElementById('results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+  const exportWord = () => downloadWordReport(projectForCalc, results);
 
   return (
     <main className="app-shell">
@@ -187,14 +227,13 @@ export default function App() {
           <h1><Calculator size={22} /> Калькулятор ливневого стока</h1>
         </div>
         <div className="topbar-actions">
-          <button type="button" className="secondary-button" onClick={scrollToResults}>Рассчитать</button>
-          <button type="button" className="primary-button" onClick={() => window.print()}><FileText size={16} /> Печатный лист</button>
+          <button type="button" className="primary-button" onClick={exportWord}><FileText size={16} /> Скачать Word-отчет</button>
         </div>
       </header>
 
       <div className="layout no-print">
         <div className="left-column">
-          <SectionCard step="1" title="Объект и место строительства" note="Минимум исходных данных для выбора климатических параметров и идентификации объекта.">
+          <SectionCard step="1" title="Объект и место строительства">
             <div className="object-grid">
               <PlaceSearch value={project.place} onSelect={(place) => setProject({ ...project, place })} />
               <div className="object-fields">
@@ -217,10 +256,11 @@ export default function App() {
             onChange={(surfaces) => setProject({ ...project, surfaces })}
           />
 
-          <SectionCard step="3" title="Климат и технология" note="Параметры годовых объемов, талого стока и поливомоечных вод.">
+          <SectionCard step="3" title="Климат и технология">
             <div className="subsection-grid">
               <div className="subsection-box">
                 <h3>Климат</h3>
+                <p className="compact-note">Параметры подставляются по выбранному населенному пункту. При отсутствии данных их можно заменить вручную.</p>
                 <div className="dense-grid two-columns">
                   <NormativeInput compact showSlider={false} label="hд, теплый период" value={project.climate.hdWarmPeriodMm} onChange={(hdWarmPeriodMm) => setProject({ ...project, climate: { ...project.climate, hdWarmPeriodMm } })} />
                   <NormativeInput compact showSlider={false} label="hт, холодный период" value={project.climate.htColdPeriodMm} onChange={(htColdPeriodMm) => setProject({ ...project, climate: { ...project.climate, htColdPeriodMm } })} />
@@ -232,30 +272,31 @@ export default function App() {
               <div className="subsection-box">
                 <h3>Технологические параметры</h3>
                 <div className="dense-grid two-columns">
-                  <NumberField label="Площадь уборки снега" value={project.snowCleanedAreaHa} unit="га" onChange={(snowCleanedAreaHa) => setProject({ ...project, snowCleanedAreaHa })} />
+                  <NumberField label="Площадь уборки снега" value={projectForCalc.snowCleanedAreaHa} readOnly unit="га" onChange={() => undefined} />
                   <NormativeInput compact showSlider label="Коэффициент неравномерности снеготаяния" value={project.meltUnevennessCoeff} onChange={(meltUnevennessCoeff) => setProject({ ...project, meltUnevennessCoeff })} />
                   <NumberField label="Площадь мойки" value={projectForCalc.washingAreaHa} readOnly unit="га" onChange={() => undefined} />
                   <NormativeInput compact showSlider label="Расход на мойку" value={project.washingRateLPerM2} onChange={(washingRateLPerM2) => setProject({ ...project, washingRateLPerM2 })} />
-                  <NumberField label="Количество моек" value={project.washingCountPerYear} step="1" unit="раз/год" onChange={(washingCountPerYear) => setProject({ ...project, washingCountPerYear })} />
-                  <NormativeInput compact showSlider label="Коэффициент мойки" value={project.washingRunoffCoeff} onChange={(washingRunoffCoeff) => setProject({ ...project, washingRunoffCoeff })} />
+                  <NumberField label="Количество моек" value={project.washingCountPerYear} step="1" min={100} max={150} showSlider unit="раз/год" onChange={(washingCountPerYear) => setProject({ ...project, washingCountPerYear })} />
+                  <NormativeInput compact showSlider={false} label="Коэффициент мойки" value={project.washingRunoffCoeff} onChange={(washingRunoffCoeff) => setProject({ ...project, washingRunoffCoeff })} />
                 </div>
-                <p className="compact-note">Площадь мойки определяется по покрытиям с галочкой «Мойка».</p>
+                <p className="compact-note">Площадь уборки снега, площадь мойки и площадь на очистку считаются по галочкам в таблице покрытий.</p>
               </div>
             </div>
           </SectionCard>
 
-          <SectionCard step="4" title="Дождевой расход и объем на очистку" note="Параметры расчетного дождя, времени протекания и очистки.">
+          <SectionCard step="4" title="Дождевой расход и объем на очистку">
             <div className="subsection-grid">
               <div className="subsection-box">
                 <h3>Расход в коллекторе</h3>
+                <p className="compact-note">q20, n, mr, γ подставляются по выбранному месту/дождевому району.</p>
                 <div className="dense-grid three-columns">
-                  <NumberField label="Площадь участка" value={project.rainFlow.areaHa} unit="га" onChange={(areaHa) => setProject({ ...project, rainFlow: { ...project.rainFlow, areaHa } })} />
+                  <NumberField label="Площадь участка" value={projectForCalc.rainFlow.areaHa} readOnly unit="га" onChange={() => undefined} />
                   <NormativeInput compact showSlider={false} label="q20" value={project.rainFlow.q20} onChange={(q20) => setProject({ ...project, rainFlow: { ...project.rainFlow, q20 } })} />
                   <NormativeInput compact showSlider={false} label="P" value={project.rainFlow.p} onChange={(p) => setProject({ ...project, rainFlow: { ...project.rainFlow, p } })} />
                   <NormativeInput compact showSlider={false} label="n" value={project.rainFlow.n} onChange={(n) => setProject({ ...project, rainFlow: { ...project.rainFlow, n } })} />
                   <NormativeInput compact showSlider={false} label="mr" value={project.rainFlow.mr} onChange={(mr) => setProject({ ...project, rainFlow: { ...project.rainFlow, mr } })} />
                   <NormativeInput compact showSlider={false} label="γ" value={project.rainFlow.gamma} onChange={(gamma) => setProject({ ...project, rainFlow: { ...project.rainFlow, gamma } })} />
-                  <NormativeInput compact showSlider={false} label="Zmid" value={project.rainFlow.zMid} onChange={(zMid) => setProject({ ...project, rainFlow: { ...project.rainFlow, zMid } })} />
+                  <NumberField label="Zmid" value={projectForCalc.rainFlow.zMid.value} readOnly onChange={() => undefined} />
                   <NormativeInput compact showSlider={false} label="tcon" value={project.rainFlow.tConMin} onChange={(tConMin) => setProject({ ...project, rainFlow: { ...project.rainFlow, tConMin } })} />
                   <NormativeInput compact showSlider={false} label="tcan" value={project.rainFlow.tCanMin} onChange={(tCanMin) => setProject({ ...project, rainFlow: { ...project.rainFlow, tCanMin } })} />
                   <NumberField label="Длина трубы" value={project.rainFlow.pipeLengthM} step="0.01" unit="м" onChange={(pipeLengthM) => setProject({ ...project, rainFlow: { ...project.rainFlow, pipeLengthM } })} />
@@ -271,12 +312,12 @@ export default function App() {
                   <NumberField label="Ψ очистки" value={projectForCalc.treatment.rainTreatmentCoeff.value} readOnly onChange={() => undefined} />
                   <NormativeInput compact showSlider={false} label="Доля загрязненного объема" value={project.treatment.pollutedRainFraction} onChange={(pollutedRainFraction) => setProject(updateTreatment(project, { pollutedRainFraction }))} />
                 </div>
-                <p className="compact-note">Площадь на очистку и коэффициент Ψ рассчитываются автоматически по покрытиям с галочкой «Очистка».</p>
+                <p className="compact-note">Площадь на очистку и Ψ рассчитываются по покрытиям с галочкой «На очистку».</p>
               </div>
             </div>
           </SectionCard>
 
-          <SectionCard step="5" title="Очистные сооружения и резервуар" note="Периоды переработки, технологические перерывы и проверка объема резервуара.">
+          <SectionCard step="5" title="Очистные сооружения и резервуар">
             <div className="dense-grid three-columns">
               <NumberField label="Переработка дождя" value={project.treatment.rainProcessingHours} step="1" unit="ч" onChange={(rainProcessingHours) => setProject(updateTreatment(project, { rainProcessingHours }))} />
               <NumberField label="Переработка талого стока" value={project.treatment.meltProcessingHours} step="1" unit="ч" onChange={(meltProcessingHours) => setProject(updateTreatment(project, { meltProcessingHours }))} />
@@ -309,13 +350,10 @@ export default function App() {
           <ValidationPanel issues={issues} />
           <section className="card actions-card">
             <h2>Действия</h2>
-            <button type="button" className="primary-button wide" onClick={scrollToResults}>Пересчитать</button>
-            <button type="button" className="secondary-button wide" onClick={() => window.print()}>Печатный лист</button>
+            <button type="button" className="primary-button wide" onClick={exportWord}>Скачать Word-отчет</button>
           </section>
         </aside>
       </div>
-
-      <PrintSheet input={projectForCalc} results={results} issues={issues} sources={sources} />
     </main>
   );
 }
