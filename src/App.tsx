@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Calculator } from 'lucide-react';
+import { Calculator, FileText } from 'lucide-react';
 import './styles/app.css';
 import climateStations from './data/climateStations.json';
 import { calculateProject } from './calc';
@@ -11,6 +11,7 @@ import { SurfaceTable } from './components/SurfaceTable';
 import { ValidationPanel } from './components/ValidationPanel';
 import { buildSurfaceFromTemplate } from './data/surfaceCatalog';
 import { formatNumericInput, normalizeNumericInput, parseNumericInput } from './utils/numberInput';
+import { downloadDocxReport } from './utils/docxReport';
 import type { ClimateParameters, NormativeValue, ProjectInput, TreatmentInput } from './types';
 
 const sourceId = 'sp32-2018-izm1-5';
@@ -237,6 +238,15 @@ export default function App() {
   const results = useMemo(() => calculateProject(projectForCalc), [projectForCalc]);
   const issues = useMemo(() => validateProject(projectForCalc), [projectForCalc]);
 
+  const handleDownloadReport = async () => {
+    try {
+      await downloadDocxReport(projectForCalc, results);
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : 'Не удалось сформировать Word-отчет.');
+    }
+  };
+
   return (
     <main className="app-shell">
       <header className="topbar no-print">
@@ -382,6 +392,12 @@ export default function App() {
         <aside className="right-column">
           <ResultsPanel results={results} />
           <ValidationPanel issues={issues} />
+          <section className="card actions-card">
+            <h2>Отчет</h2>
+            <button type="button" className="primary-button wide" onClick={handleDownloadReport}>
+              <FileText size={16} /> Скачать Word-отчет
+            </button>
+          </section>
         </aside>
       </div>
     </main>

@@ -16,7 +16,8 @@
     "react": "latest",
     "react-dom": "latest",
     "typescript": "latest",
-    "vite": "latest"
+    "vite": "latest",
+    "jszip": "latest"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",
