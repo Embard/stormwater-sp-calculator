@@ -49,6 +49,7 @@ export type SurfaceKind = 'driveway' | 'lawn' | 'roof' | 'structure' | 'custom';
 
 export type SurfaceItem = {
   id: string;
+  templateId?: string;
   name: string;
   kind: SurfaceKind;
   areaHa: number;
