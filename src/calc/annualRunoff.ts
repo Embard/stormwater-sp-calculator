@@ -7,7 +7,7 @@ export function sumAreaHa(surfaces: SurfaceItem[]): number {
 
 export function weightedCoefficient(
   surfaces: SurfaceItem[],
-  coefficientKey: 'annualRainCoeff' | 'designRainCoeff',
+  coefficientKey: 'annualRainCoeff' | 'coverCoeff' | 'designRainCoeff',
   filter: (surface: SurfaceItem) => boolean = () => true
 ): number {
   const selected = surfaces.filter(filter);
