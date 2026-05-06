@@ -9,8 +9,9 @@ type Props = {
 
 export function PlaceSearch({ value, onSelect }: Props) {
   const [query, setQuery] = useState(`${value.name} ${value.region}`);
+  const [showMatches, setShowMatches] = useState(false);
   const matches = useMemo(() => searchLocalPlaces(query), [query]);
-  const shownMatches = matches.slice(0, 3);
+  const alternativeMatches = matches.filter((match) => match.id !== value.id).slice(0, 3);
 
   return (
     <div className="place-search">
@@ -19,29 +20,41 @@ export function PlaceSearch({ value, onSelect }: Props) {
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Например: Козенки Московская область" />
       </label>
 
-      <div className="selected-place">
-        <strong>{value.name}</strong>
-        <span>{value.region}{value.district ? `, ${value.district}` : ''}</span>
-        <small>{value.source === 'local' ? 'локальная база' : value.source}, уверенность {Math.round(value.confidence * 100)}%</small>
+      <div className="selected-place compact-selected-place">
+        <div>
+          <strong>Выбрано: {value.name}</strong>
+          <span>{value.region}{value.district ? `, ${value.district}` : ''}</span>
+        </div>
+        {alternativeMatches.length > 0 ? (
+          <button type="button" className="text-button" onClick={() => setShowMatches((current) => !current)}>
+            {showMatches ? 'Скрыть варианты' : `Другие варианты: ${alternativeMatches.length}`}
+          </button>
+        ) : null}
       </div>
 
-      <div className="matches compact-matches">
-        {shownMatches.length > 0 ? (
-          shownMatches.map((match) => (
+      {showMatches && alternativeMatches.length > 0 ? (
+        <div className="matches compact-matches">
+          {alternativeMatches.map((match) => (
             <button
               key={match.id}
-              className={`match ${match.id === value.id ? 'is-selected' : ''}`}
-              onClick={() => onSelect(match)}
+              className="match"
+              onClick={() => {
+                onSelect(match);
+                setQuery(`${match.name} ${match.region}`);
+                setShowMatches(false);
+              }}
               type="button"
             >
               <strong>{match.name}</strong>
               <span>{match.region}{match.district ? `, ${match.district}` : ''}</span>
             </button>
-          ))
-        ) : (
-          <p className="muted compact-note">В локальной базе совпадений нет. Следующий этап — геокодер или выбор точки на карте.</p>
-        )}
-      </div>
+          ))}
+        </div>
+      ) : null}
+
+      {matches.length === 0 ? (
+        <p className="muted compact-note">Совпадений в локальной базе нет. Для расчетов можно ввести параметры вручную.</p>
+      ) : null}
     </div>
   );
 }
