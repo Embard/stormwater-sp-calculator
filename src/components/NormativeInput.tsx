@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId } from 'react';
 import type { NormativeValue } from '../types';
 
 type Props = {
@@ -6,13 +6,13 @@ type Props = {
   value: NormativeValue;
   onChange: (next: NormativeValue) => void;
   compact?: boolean;
-  showRangeByDefault?: boolean;
   step?: number | string;
+  showSlider?: boolean;
 };
 
 function formatRange(value: NormativeValue): string {
   if (value.min === undefined && value.max === undefined) return '';
-  return `${value.min ?? '—'} … ${value.max ?? '—'} ${value.unit}`;
+  return `${value.min ?? '—'}–${value.max ?? '—'}${value.unit && value.unit !== '-' ? ` ${value.unit}` : ''}`;
 }
 
 export function NormativeInput({
@@ -20,18 +20,14 @@ export function NormativeInput({
   value,
   onChange,
   compact = false,
-  showRangeByDefault = false,
-  step = 0.0001
+  step = 0.0001,
+  showSlider = true
 }: Props) {
   const inputId = useId();
-  const [rangeOpen, setRangeOpen] = useState(showRangeByDefault);
   const hasRange = value.min !== undefined || value.max !== undefined;
   const isOutOfRange =
     (value.min !== undefined && value.value < value.min) ||
     (value.max !== undefined && value.value > value.max);
-  const isRangeEdge =
-    (value.min !== undefined && value.value === value.min) ||
-    (value.max !== undefined && value.value === value.max);
 
   const handleNumberChange = (nextValue: number) => {
     onChange({
@@ -60,16 +56,9 @@ export function NormativeInput({
         <span className="unit">{value.unit}</span>
       </div>
 
-      {hasRange ? (
-        <div className="normative-meta">
-          <span>Диапазон: {formatRange(value)}</span>
-          <button type="button" className="text-button" onClick={() => setRangeOpen((current) => !current)}>
-            {rangeOpen ? 'Скрыть' : 'Шкала'}
-          </button>
-        </div>
-      ) : null}
+      {hasRange ? <div className="normative-meta">Диапазон: {formatRange(value)}</div> : null}
 
-      {hasRange && rangeOpen ? (
+      {hasRange && showSlider ? (
         <input
           className="range"
           type="range"
@@ -78,11 +67,11 @@ export function NormativeInput({
           step={step}
           value={sliderValue}
           onChange={(event) => handleNumberChange(Number(event.target.value))}
+          aria-label={label ? `${label}: выбор значения в нормативном диапазоне` : 'Выбор значения в нормативном диапазоне'}
         />
       ) : null}
 
       {isOutOfRange ? <span className="error-text">Вне диапазона — нужно обоснование</span> : null}
-      {!isOutOfRange && isRangeEdge ? <span className="hint">Край диапазона — проверьте обоснование</span> : null}
     </div>
   );
 }
