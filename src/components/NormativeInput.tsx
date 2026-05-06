@@ -29,7 +29,8 @@ export function NormativeInput({
   const outOfRange = hasRange && ((value.min !== undefined && value.value < value.min) || (value.max !== undefined && value.value > value.max));
 
   const handleNumberChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const next = event.target.value === '' ? 0 : Number(event.target.value.replace(',', '.'));
+    const normalized = event.target.value.replace(',', '.').replace(/^(-?)0+(?=\d)/, '$1');
+    const next = normalized === '' ? 0 : Number(normalized);
     onChange({ ...value, value: Number.isFinite(next) ? next : value.value });
   };
 
