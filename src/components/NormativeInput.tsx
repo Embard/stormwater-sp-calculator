@@ -26,9 +26,11 @@ export function NormativeInput({
   readOnly = false
 }: Props) {
   const [textValue, setTextValue] = useState(formatNumericInput(value.value));
-  const hasRange = value.min !== undefined && value.max !== undefined;
-  const hasAdjustableRange = hasRange && value.min !== value.max;
-  const outOfRange = hasRange && ((value.min !== undefined && value.value < value.min) || (value.max !== undefined && value.value > value.max));
+  const hasMin = value.min !== undefined;
+  const hasMax = value.max !== undefined;
+  const hasRange = hasMin && hasMax && value.min !== value.max;
+  const hasAdjustableRange = hasRange;
+  const outOfRange = (hasMin && value.value < value.min!) || (hasMax && value.value > value.max!);
 
   useEffect(() => {
     setTextValue(formatNumericInput(value.value));

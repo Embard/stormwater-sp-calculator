@@ -7,7 +7,6 @@ import { calculateProject } from './calc';
 import { weightedCoefficient } from './calc/annualRunoff';
 import { validateProject } from './calc/validation';
 import { NormativeInput } from './components/NormativeInput';
-import { PlaceSearch } from './components/PlaceSearch';
 import { ResultsPanel } from './components/ResultsPanel';
 import { SurfaceTable } from './components/SurfaceTable';
 import { ValidationPanel } from './components/ValidationPanel';
@@ -49,7 +48,7 @@ const initialProject: ProjectInput = {
     areaHa: 1.8697,
     zMid: { value: 0.32, unit: '-', sourceId, basis: 'manual', justification: 'Вводится вручную по принятой методике.' },
     q20: initialClimate.q20,
-    p: { value: 1, min: 0.33, max: 10, default: 1, unit: 'год', sourceId, basis: 'normative-range' },
+    p: { value: 1, min: 0.33, max: 20, default: 1, unit: 'год', sourceId, basis: 'normative-range' },
     n: initialClimate.n,
     mr: initialClimate.mr,
     gamma: initialClimate.gamma,
@@ -65,7 +64,7 @@ const initialProject: ProjectInput = {
     pollutedRainFraction: { value: 1, unit: '-', sourceId, basis: 'manual', justification: 'Принято для демонстрационного примера.' },
     rainProcessingHours: 24,
     meltProcessingHours: 24,
-    meltConsecutiveDays: 2,
+    meltConsecutiveDays: 1,
     settlingHours: 0,
     technicalBreakHours: 0,
     reservoirWorkingVolumeM3: 350,
@@ -108,9 +107,11 @@ type NumberFieldProps = {
 
 function NumberField({ label, value, onChange, step = '0.0001', unit, readOnly = false, min, max, showSlider = false }: NumberFieldProps) {
   const [textValue, setTextValue] = useState(formatNumericInput(value));
-  const hasRange = min !== undefined && max !== undefined;
-  const isOutOfRange = hasRange && (value < min! || value > max!);
-  const hasSlider = showSlider && hasRange && min !== max && !readOnly;
+  const hasMin = min !== undefined;
+  const hasMax = max !== undefined;
+  const hasRange = hasMin && hasMax && min !== max;
+  const isOutOfRange = (hasMin && value < min!) || (hasMax && value > max!);
+  const hasSlider = showSlider && hasRange && !readOnly;
 
   useEffect(() => {
     setTextValue(formatNumericInput(value));
@@ -158,31 +159,6 @@ function updateTreatment(project: ProjectInput, patch: Partial<TreatmentInput>):
 }
 
 
-function DataLinks({ type }: { type: 'climate' | 'rain' | 'treatment' }) {
-  const links = type === 'climate'
-    ? [
-        ['Климатические параметры', 'https://www.vo-da.ru/tool/cp-info'],
-        ['Талые воды', 'https://www.vo-da.ru/tool/meltedwater']
-      ]
-    : type === 'rain'
-      ? [
-          ['Дождевые параметры', 'https://www.vo-da.ru/tool/rain'],
-          ['Тип дождя / P', 'https://www.vo-da.ru/tool/rain-type'],
-          ['Слои и районы', 'https://www.vo-da.ru/tool/layer']
-        ]
-      : [
-          ['Объем дождя на очистку', 'https://www.vo-da.ru/tool/rain'],
-          ['Слои и районы', 'https://www.vo-da.ru/tool/layer']
-        ];
-
-  return (
-    <div className="source-links">
-      {links.map(([label, href]) => (
-        <a key={href} href={href} target="_blank" rel="noreferrer">{label}</a>
-      ))}
-    </div>
-  );
-}
 
 function getReservoirReserve(mode: TreatmentInput['reservoirMode'], current?: NormativeValue): NormativeValue {
   if (mode === 'regulation-and-settling') {
@@ -195,27 +171,6 @@ function getReservoirReserve(mode: TreatmentInput['reservoirMode'], current?: No
 
 export default function App() {
   const [project, setProject] = useState<ProjectInput>(initialProject);
-
-  const handlePlaceSelect = (place: ProjectInput['place']) => {
-    const station = climateStations.find((item) => item.placeId === place.id) as ClimateParameters | undefined;
-    if (!station) {
-      setProject({ ...project, place });
-      return;
-    }
-
-    setProject({
-      ...project,
-      place,
-      climate: station,
-      rainFlow: {
-        ...project.rainFlow,
-        q20: station.q20,
-        n: station.n,
-        mr: station.mr,
-        gamma: station.gamma
-      }
-    });
-  };
 
   const treatmentArea = useMemo(
     () => project.surfaces.filter((surface) => surface.routedToTreatment).reduce((sum, surface) => sum + surface.areaHa, 0),
@@ -287,20 +242,15 @@ export default function App() {
 
       <div className="layout no-print">
         <div className="left-column">
-          <SectionCard step="1" title="Объект и место строительства">
-            <div className="object-grid">
-              <PlaceSearch value={project.place} onSelect={handlePlaceSelect} />
-              <div className="object-fields">
-                <label className="field compact-field">
-                  <span className="field-label">Наименование объекта</span>
-                  <input
-                    value={project.objectName}
-                    onFocus={(event) => event.currentTarget.select()}
-                    onChange={(event) => setProject({ ...project, objectName: event.target.value })}
-                  />
-                </label>
-              </div>
-            </div>
+          <SectionCard step="1" title="Объект">
+            <label className="field compact-field object-name-field">
+              <span className="field-label">Наименование объекта</span>
+              <input
+                value={project.objectName}
+                onFocus={(event) => event.currentTarget.select()}
+                onChange={(event) => setProject({ ...project, objectName: event.target.value })}
+              />
+            </label>
           </SectionCard>
 
           <SurfaceTable
@@ -314,8 +264,6 @@ export default function App() {
             <div className="subsection-grid">
               <div className="subsection-box">
                 <h3>Климат</h3>
-                <p className="compact-note">Если населенного пункта нет в локальной базе, параметры нужно проверить и ввести вручную.</p>
-                <DataLinks type="climate" />
                 <div className="dense-grid two-columns">
                   <NormativeInput compact showSlider={false} label="hд, теплый период" value={project.climate.hdWarmPeriodMm} onChange={(hdWarmPeriodMm) => setProject({ ...project, climate: { ...project.climate, hdWarmPeriodMm } })} />
                   <NormativeInput compact showSlider={false} label="hт, холодный период" value={project.climate.htColdPeriodMm} onChange={(htColdPeriodMm) => setProject({ ...project, climate: { ...project.climate, htColdPeriodMm } })} />
@@ -343,18 +291,17 @@ export default function App() {
             <div className="subsection-grid">
               <div className="subsection-box">
                 <h3>Расход в коллекторе</h3>
-                <p className="compact-note">q20, n, mr, γ принимаются по дождевому району. Проверьте значения по источникам ниже.</p>
-                <DataLinks type="rain" />
+                <p className="compact-note">q20, n, mr, γ и P вводятся вручную по принятому дождевому району и условиям расположения коллектора. tcan учитывается только при наличии открытых канав/лотков; если их нет — 0.</p>
                 <div className="dense-grid three-columns">
                   <NumberField label="Площадь участка" value={projectForCalc.rainFlow.areaHa} readOnly unit="га" onChange={() => undefined} />
                   <NormativeInput compact showSlider={false} label="q20" value={project.rainFlow.q20} onChange={(q20) => setProject({ ...project, rainFlow: { ...project.rainFlow, q20 } })} />
-                  <NormativeInput compact showSlider={false} label="P" value={project.rainFlow.p} onChange={(p) => setProject({ ...project, rainFlow: { ...project.rainFlow, p } })} />
+                  <NormativeInput compact showSlider={false} label="P по табл. 9" value={project.rainFlow.p} onChange={(p) => setProject({ ...project, rainFlow: { ...project.rainFlow, p } })} />
                   <NormativeInput compact showSlider={false} label="n" value={project.rainFlow.n} onChange={(n) => setProject({ ...project, rainFlow: { ...project.rainFlow, n } })} />
                   <NormativeInput compact showSlider={false} label="mr" value={project.rainFlow.mr} onChange={(mr) => setProject({ ...project, rainFlow: { ...project.rainFlow, mr } })} />
                   <NormativeInput compact showSlider={false} label="γ" value={project.rainFlow.gamma} onChange={(gamma) => setProject({ ...project, rainFlow: { ...project.rainFlow, gamma } })} />
                   <NumberField label="Zmid" value={projectForCalc.rainFlow.zMid.value} readOnly onChange={() => undefined} />
                   <NormativeInput compact showSlider={false} label="tcon" value={project.rainFlow.tConMin} onChange={(tConMin) => setProject({ ...project, rainFlow: { ...project.rainFlow, tConMin } })} />
-                  <NormativeInput compact showSlider={false} label="tcan" value={project.rainFlow.tCanMin} onChange={(tCanMin) => setProject({ ...project, rainFlow: { ...project.rainFlow, tCanMin } })} />
+                  <NormativeInput compact showSlider={false} label="tcan, канавы/лотки" value={project.rainFlow.tCanMin} onChange={(tCanMin) => setProject({ ...project, rainFlow: { ...project.rainFlow, tCanMin } })} />
                   <NumberField label="Длина трубы" value={project.rainFlow.pipeLengthM} step="0.01" unit="м" onChange={(pipeLengthM) => setProject({ ...project, rainFlow: { ...project.rainFlow, pipeLengthM } })} />
                   <NumberField label="Скорость" value={project.rainFlow.pipeVelocityMS} step="0.01" unit="м/с" onChange={(pipeVelocityMS) => setProject({ ...project, rainFlow: { ...project.rainFlow, pipeVelocityMS } })} />
                 </div>
@@ -368,21 +315,33 @@ export default function App() {
                   <NumberField label="Ψ очистки" value={projectForCalc.treatment.rainTreatmentCoeff.value} readOnly onChange={() => undefined} />
                   <NormativeInput compact showSlider={false} label="Доля объема на очистку" value={project.treatment.pollutedRainFraction} onChange={(pollutedRainFraction) => setProject(updateTreatment(project, { pollutedRainFraction }))} />
                 </div>
-                <p className="compact-note">Площадь на очистку и Ψ рассчитываются по покрытиям с галочкой «На очистку». Доля объема на очистку: 1 — весь расчетный дождевой объем идет на очистные; меньше 1 — только при обоснованном разделении потоков.</p>
-                <DataLinks type="treatment" />
+                <p className="compact-note">Площадь на очистку и Ψ рассчитываются по покрытиям с признаком «На очистку». Доля объема на очистку: 1 — весь расчетный дождевой объем идет на очистные; меньше 1 — только при обоснованном разделении потоков.</p>
               </div>
             </div>
           </SectionCard>
 
           <SectionCard step="5" title="Очистные сооружения и резервуар">
-            <p className="compact-note">Расчетных суток снеготаяния — сценарий проверки накопления: 1 сутки без многосуточного запаса, 2 и более — если нужно проверить последовательное поступление талого стока. Рабочий объем резервуара — ручной ввод фактического/подбираемого объема; требуемый объем показан в результатах.</p>
+            <p className="compact-note">Фактический рабочий объем резервуара вводится вручную для проверки. Требуемый рабочий и полный объемы рассчитываются ниже. Расчетные сутки снеготаяния показываются только если период переработки талого стока больше 24 ч.</p>
             <div className="dense-grid three-columns">
               <NumberField label="Переработка дождя" value={project.treatment.rainProcessingHours} step="1" unit="ч" onChange={(rainProcessingHours) => setProject(updateTreatment(project, { rainProcessingHours }))} />
-              <NumberField label="Переработка талого стока" value={project.treatment.meltProcessingHours} step="1" unit="ч" onChange={(meltProcessingHours) => setProject(updateTreatment(project, { meltProcessingHours }))} />
-              <NumberField label="Расчетных суток снеготаяния" value={project.treatment.meltConsecutiveDays} step="1" min={1} max={10} showSlider unit="сут" onChange={(meltConsecutiveDays) => setProject(updateTreatment(project, { meltConsecutiveDays }))} />
+              <NumberField
+                label="Переработка талого стока"
+                value={project.treatment.meltProcessingHours}
+                step="1"
+                unit="ч"
+                onChange={(meltProcessingHours) => setProject(updateTreatment(project, {
+                  meltProcessingHours,
+                  meltConsecutiveDays: meltProcessingHours > 24 ? project.treatment.meltConsecutiveDays : 1
+                }))}
+              />
+              {project.treatment.meltProcessingHours > 24 ? (
+                <NumberField label="Расчетных суток снеготаяния" value={project.treatment.meltConsecutiveDays} step="1" min={1} max={10} showSlider unit="сут" onChange={(meltConsecutiveDays) => setProject(updateTreatment(project, { meltConsecutiveDays }))} />
+              ) : null}
               <NumberField label="Отстаивание" value={project.treatment.settlingHours} step="1" unit="ч" onChange={(settlingHours) => setProject(updateTreatment(project, { settlingHours }))} />
               <NumberField label="Технологические перерывы" value={project.treatment.technicalBreakHours} step="1" unit="ч" onChange={(technicalBreakHours) => setProject(updateTreatment(project, { technicalBreakHours }))} />
-              <NumberField label="Фактический рабочий объем резервуара" value={project.treatment.reservoirWorkingVolumeM3} step="0.1" unit="м³" onChange={(reservoirWorkingVolumeM3) => setProject(updateTreatment(project, { reservoirWorkingVolumeM3 }))} />
+              <NumberField label="Фактический рабочий объем резервуара" value={project.treatment.reservoirWorkingVolumeM3} step="0.1" unit="м³" min={results.treatment.requiredReservoirWorkingVolumeM3} onChange={(reservoirWorkingVolumeM3) => setProject(updateTreatment(project, { reservoirWorkingVolumeM3 }))} />
+              <NumberField label="Требуемый рабочий объем" value={results.treatment.requiredReservoirWorkingVolumeM3} step="0.1" unit="м³" readOnly onChange={() => undefined} />
+              <NumberField label="Требуемый полный объем" value={results.treatment.requiredReservoirFullVolumeM3} step="0.1" unit="м³" readOnly onChange={() => undefined} />
               <NormativeInput compact showSlider label="Запас резервуара" value={project.treatment.reservoirReservePercent} onChange={(reservoirReservePercent) => setProject(updateTreatment(project, { reservoirReservePercent }))} />
               <label className="field compact-field select-field">
                 <span className="field-label">Режим резервуара</span>

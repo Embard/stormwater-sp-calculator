@@ -32,5 +32,6 @@ export function parseNumericInput(raw: string): number {
 export function formatNumericInput(value: number): string {
   if (!Number.isFinite(value)) return '0';
   const normalized = Object.is(value, -0) ? 0 : value;
-  return String(normalized).replace('.', ',');
+  const rounded = Math.round((normalized + Number.EPSILON) * 1_000_000) / 1_000_000;
+  return String(rounded).replace('.', ',');
 }
