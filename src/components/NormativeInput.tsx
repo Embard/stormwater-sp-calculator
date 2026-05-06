@@ -1,18 +1,19 @@
-import { useId } from 'react';
+import type { ChangeEvent } from 'react';
 import type { NormativeValue } from '../types';
 
 type Props = {
   label?: string;
   value: NormativeValue;
-  onChange: (next: NormativeValue) => void;
+  onChange: (value: NormativeValue) => void;
   compact?: boolean;
-  step?: number | string;
   showSlider?: boolean;
+  readOnly?: boolean;
 };
 
-function formatRange(value: NormativeValue): string {
-  if (value.min === undefined && value.max === undefined) return '';
-  return `${value.min ?? '—'}–${value.max ?? '—'}${value.unit && value.unit !== '-' ? ` ${value.unit}` : ''}`;
+function stepFor(value: number): string {
+  if (Number.isInteger(value)) return '1';
+  const fraction = value.toString().split('.')[1]?.length ?? 0;
+  return fraction > 2 ? '0.0001' : '0.01';
 }
 
 export function NormativeInput({
@@ -20,58 +21,51 @@ export function NormativeInput({
   value,
   onChange,
   compact = false,
-  step = 0.0001,
-  showSlider = true
+  showSlider = true,
+  readOnly = false
 }: Props) {
-  const inputId = useId();
-  const hasRange = value.min !== undefined || value.max !== undefined;
-  const isOutOfRange =
-    (value.min !== undefined && value.value < value.min) ||
-    (value.max !== undefined && value.value > value.max);
+  const hasRange = value.min !== undefined && value.max !== undefined;
+  const hasAdjustableRange = hasRange && value.min !== value.max;
+  const outOfRange = hasRange && ((value.min !== undefined && value.value < value.min) || (value.max !== undefined && value.value > value.max));
 
-  const handleNumberChange = (nextValue: number) => {
-    onChange({
-      ...value,
-      value: nextValue,
-      basis: value.basis === 'calculated' ? 'manual' : value.basis
-    });
+  const handleNumberChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const next = event.target.value === '' ? 0 : Number(event.target.value.replace(',', '.'));
+    onChange({ ...value, value: Number.isFinite(next) ? next : value.value });
   };
 
-  const sliderValue = Math.min(
-    value.max ?? value.value,
-    Math.max(value.min ?? value.value, value.value)
-  );
-
   return (
-    <div className={`normative-input ${compact ? 'compact' : ''} ${isOutOfRange ? 'is-invalid' : ''}`}>
-      {label ? <label className="field-label" htmlFor={inputId}>{label}</label> : null}
+    <label className={`field ${compact ? 'compact-field' : ''} ${outOfRange ? 'out-of-range' : ''}`}>
+      {label ? <span className="field-label">{label}</span> : null}
       <div className="input-row">
         <input
-          id={inputId}
           type="number"
-          step={step}
+          step={stepFor(value.value)}
           value={value.value}
-          onChange={(event) => handleNumberChange(Number(event.target.value))}
+          readOnly={readOnly}
+          onFocus={(event) => event.currentTarget.select()}
+          onChange={handleNumberChange}
         />
-        <span className="unit">{value.unit}</span>
+        {value.unit !== '-' ? <span className="unit">{value.unit}</span> : null}
       </div>
 
-      {hasRange ? <div className="normative-meta">Диапазон: {formatRange(value)}</div> : null}
-
-      {hasRange && showSlider ? (
-        <input
-          className="range"
-          type="range"
-          min={value.min ?? value.value}
-          max={value.max ?? value.value}
-          step={step}
-          value={sliderValue}
-          onChange={(event) => handleNumberChange(Number(event.target.value))}
-          aria-label={label ? `${label}: выбор значения в нормативном диапазоне` : 'Выбор значения в нормативном диапазоне'}
-        />
+      {hasRange ? (
+        <span className="range-note">
+          Диапазон: {value.min}–{value.max}{value.unit !== '-' ? ` ${value.unit}` : ''}
+        </span>
       ) : null}
 
-      {isOutOfRange ? <span className="error-text">Вне диапазона — нужно обоснование</span> : null}
-    </div>
+      {!readOnly && showSlider && hasAdjustableRange ? (
+        <input
+          className="normative-slider"
+          type="range"
+          min={value.min}
+          max={value.max}
+          step={stepFor(value.value)}
+          value={value.value}
+          onChange={(event) => onChange({ ...value, value: Number(event.target.value) })}
+          aria-label={label ?? 'Нормативное значение'}
+        />
+      ) : null}
+    </label>
   );
 }
