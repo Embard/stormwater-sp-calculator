@@ -17,12 +17,20 @@ function isSliderNeeded(surface: SurfaceItem, key: 'annualRainCoeff' | 'designRa
   return coeff.min !== undefined && coeff.max !== undefined && coeff.min !== coeff.max;
 }
 
+function parseInputNumber(raw: string): number {
+  const normalized = raw.replace(',', '.').replace(/^(-?)0+(?=\d)/, '$1');
+  const value = Number(normalized);
+  return Number.isFinite(value) ? value : 0;
+}
+
 export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChange }: Props) {
   const updateSurface = (id: string, patch: Partial<SurfaceItem>) => {
     onChange(surfaces.map((surface) => (surface.id === id ? { ...surface, ...patch } : surface)));
   };
 
   const totalSurfaceArea = surfaces.reduce((sum, surface) => sum + surface.areaHa, 0);
+  const areaDiff = totalSurfaceArea - totalAreaHa;
+  const isAreaOk = Math.abs(areaDiff) < 0.0001;
 
   return (
     <section className="card section-card">
@@ -30,9 +38,7 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
         <div>
           <span className="step-label">2</span>
           <h2>Покрытия и расчетная площадь</h2>
-          <p className="section-subtitle">
-            ψд — годовой коэффициент по таблице 7. Ψ — коэффициент для расчетного дождя и очистки по таблице 13.
-          </p>
+          <p className="section-subtitle">ψд — годовой коэффициент. Ψ — постоянный коэффициент для расчетного дождя и очистки.</p>
         </div>
         <div className="surface-head-actions">
           <label className="field compact-field total-area-field">
@@ -42,7 +48,7 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
               step="0.0001"
               value={totalAreaHa}
               onFocus={(event) => event.currentTarget.select()}
-              onChange={(event) => onTotalAreaChange(Number(event.target.value))}
+              onChange={(event) => onTotalAreaChange(parseInputNumber(event.target.value))}
             />
           </label>
           <button
@@ -61,14 +67,15 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
         <div className="surface-grid-header">ψд годовой</div>
         <div className="surface-grid-header">Ψ расчетный</div>
         <div className="surface-grid-header center">Мойка</div>
-        <div className="surface-grid-header center">Очистка</div>
+        <div className="surface-grid-header center">Снег</div>
+        <div className="surface-grid-header center">На очистку</div>
         <div className="surface-grid-header"></div>
 
         {surfaces.map((surface) => {
           const template = getSurfaceTemplate(surface.templateId);
           return (
             <Fragment key={surface.id}>
-              <div className="surface-cell" key={`${surface.id}-type`}>
+              <div className="surface-cell">
                 <label className="field compact-field cell-field">
                   <select
                     value={template.id}
@@ -81,19 +88,19 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
                 </label>
               </div>
 
-              <div className="surface-cell" key={`${surface.id}-area`}>
+              <div className="surface-cell">
                 <label className="field compact-field cell-field">
                   <input
                     type="number"
                     step="0.0001"
                     value={surface.areaHa}
                     onFocus={(event) => event.currentTarget.select()}
-                    onChange={(event) => updateSurface(surface.id, { areaHa: Number(event.target.value) })}
+                    onChange={(event) => updateSurface(surface.id, { areaHa: parseInputNumber(event.target.value) })}
                   />
                 </label>
               </div>
 
-              <div className="surface-cell" key={`${surface.id}-annual`}>
+              <div className="surface-cell">
                 <NormativeInput
                   compact
                   value={surface.annualRainCoeff}
@@ -102,7 +109,7 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
                 />
               </div>
 
-              <div className="surface-cell" key={`${surface.id}-design`}>
+              <div className="surface-cell">
                 <NormativeInput
                   compact
                   value={surface.designRainCoeff}
@@ -111,26 +118,35 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
                 />
               </div>
 
-              <div className="surface-cell center" key={`${surface.id}-wash`}>
+              <div className="surface-cell center">
                 <input
                   type="checkbox"
                   checked={surface.isWashed}
                   disabled={!surface.isHardSurface}
                   onChange={(event) => updateSurface(surface.id, { isWashed: event.target.checked })}
-                  aria-label="Мойка покрытия"
+                  aria-label="Учитывать покрытие в площади мойки"
                 />
               </div>
 
-              <div className="surface-cell center" key={`${surface.id}-treatment`}>
+              <div className="surface-cell center">
+                <input
+                  type="checkbox"
+                  checked={surface.isCleanedFromSnow}
+                  onChange={(event) => updateSurface(surface.id, { isCleanedFromSnow: event.target.checked })}
+                  aria-label="Учитывать покрытие в площади уборки снега"
+                />
+              </div>
+
+              <div className="surface-cell center">
                 <input
                   type="checkbox"
                   checked={surface.routedToTreatment}
                   onChange={(event) => updateSurface(surface.id, { routedToTreatment: event.target.checked })}
-                  aria-label="Направить на очистку"
+                  aria-label="Направить покрытие на очистные сооружения"
                 />
               </div>
 
-              <div className="surface-cell center" key={`${surface.id}-delete`}>
+              <div className="surface-cell center">
                 <button
                   type="button"
                   className="icon-button"
@@ -145,10 +161,10 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
         })}
       </div>
 
-      <div className="surface-summary-row">
+      <div className={`surface-summary-row ${isAreaOk ? 'area-ok' : 'area-error'}`}>
         <span>Сумма покрытий</span>
         <strong>{formatNumber(totalSurfaceArea, 4)} га</strong>
-        <span>{Math.abs(totalSurfaceArea - totalAreaHa) < 0.0001 ? 'Совпадает с общей площадью' : 'Не совпадает с общей площадью'}</span>
+        <span>{isAreaOk ? 'Совпадает с общей площадью' : `Не совпадает: ${areaDiff > 0 ? '+' : ''}${formatNumber(areaDiff, 4)} га`}</span>
       </div>
     </section>
   );
