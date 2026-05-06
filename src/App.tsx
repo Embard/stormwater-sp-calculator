@@ -221,12 +221,16 @@ export default function App() {
                   <span className="field-label">Наименование объекта</span>
                   <input value={project.objectName} onChange={(event) => setProject({ ...project, objectName: event.target.value })} />
                 </label>
-                <NumberField label="Общая площадь" value={project.totalAreaHa} unit="га" onChange={(totalAreaHa) => setProject({ ...project, totalAreaHa })} />
               </div>
             </div>
           </SectionCard>
 
-          <SurfaceTable surfaces={project.surfaces} onChange={(surfaces) => setProject({ ...project, surfaces })} />
+          <SurfaceTable
+            surfaces={project.surfaces}
+            totalAreaHa={project.totalAreaHa}
+            onTotalAreaChange={(totalAreaHa) => setProject({ ...project, totalAreaHa })}
+            onChange={(surfaces) => setProject({ ...project, surfaces })}
+          />
 
           <SectionCard step="3" title="Климат и технология" note="Базовые параметры годовых объемов, талого стока и поливомоечных вод.">
             <div className="subsection-grid">
