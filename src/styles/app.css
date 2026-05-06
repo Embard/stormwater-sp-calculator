@@ -574,3 +574,29 @@ input[type="checkbox"] {
     font-size: 11px;
   }
 }
+
+.link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.help-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 6px 12px;
+  border: 1px solid var(--line-dark);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--primary-dark);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.help-link:hover {
+  border-color: var(--primary);
+  background: var(--card-accent);
+}

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Calculator, FileText } from 'lucide-react';
+import { Calculator } from 'lucide-react';
 import './styles/app.css';
-import sourcesData from './data/sources.json';
 import climateStations from './data/climateStations.json';
 import { calculateProject } from './calc';
 import { weightedCoefficient } from './calc/annualRunoff';
@@ -12,8 +11,7 @@ import { SurfaceTable } from './components/SurfaceTable';
 import { ValidationPanel } from './components/ValidationPanel';
 import { buildSurfaceFromTemplate } from './data/surfaceCatalog';
 import { formatNumericInput, normalizeNumericInput, parseNumericInput } from './utils/numberInput';
-import { downloadWordReport } from './utils/wordReport';
-import type { ClimateParameters, NormativeValue, ProjectInput, SourceRef, TreatmentInput } from './types';
+import type { ClimateParameters, NormativeValue, ProjectInput, TreatmentInput } from './types';
 
 const sourceId = 'sp32-2018-izm1-5';
 const initialClimate = climateStations[0] as ClimateParameters;
@@ -158,7 +156,21 @@ function updateTreatment(project: ProjectInput, patch: Partial<TreatmentInput>):
   return { ...project, treatment: { ...project.treatment, ...patch } };
 }
 
+function HelpLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a className="help-link" href={href} target="_blank" rel="noreferrer">
+      {children}
+    </a>
+  );
+}
 
+const helpLinks = {
+  climate: 'https://www.vo-da.ru/tool/cp-info',
+  rain: 'https://www.vo-da.ru/tool/rain',
+  rainType: 'https://www.vo-da.ru/tool/rain-type',
+  meltedWater: 'https://www.vo-da.ru/tool/meltedwater',
+  layer: 'https://www.vo-da.ru/tool/layer'
+};
 
 function getReservoirReserve(mode: TreatmentInput['reservoirMode'], current?: NormativeValue): NormativeValue {
   if (mode === 'regulation-and-settling') {
@@ -224,9 +236,6 @@ export default function App() {
 
   const results = useMemo(() => calculateProject(projectForCalc), [projectForCalc]);
   const issues = useMemo(() => validateProject(projectForCalc), [projectForCalc]);
-  const sources = sourcesData as SourceRef[];
-
-  const exportWord = () => downloadWordReport(projectForCalc, results);
 
   return (
     <main className="app-shell">
@@ -234,9 +243,6 @@ export default function App() {
         <div className="topbar-title">
           <span className="eyebrow">СП 32.13330.2018 с изменениями</span>
           <h1><Calculator size={22} /> Калькулятор ливневого стока</h1>
-        </div>
-        <div className="topbar-actions">
-          <button type="button" className="primary-button" onClick={exportWord}><FileText size={16} /> Скачать Word-отчет</button>
         </div>
       </header>
 
@@ -264,6 +270,10 @@ export default function App() {
             <div className="subsection-grid">
               <div className="subsection-box">
                 <h3>Климат</h3>
+                <div className="link-row">
+                  <HelpLink href={helpLinks.climate}>Климатические параметры</HelpLink>
+                  <HelpLink href={helpLinks.meltedWater}>Талые воды</HelpLink>
+                </div>
                 <div className="dense-grid two-columns">
                   <NormativeInput compact showSlider={false} label="hд, теплый период" value={project.climate.hdWarmPeriodMm} onChange={(hdWarmPeriodMm) => setProject({ ...project, climate: { ...project.climate, hdWarmPeriodMm } })} />
                   <NormativeInput compact showSlider={false} label="hт, холодный период" value={project.climate.htColdPeriodMm} onChange={(htColdPeriodMm) => setProject({ ...project, climate: { ...project.climate, htColdPeriodMm } })} />
@@ -292,6 +302,11 @@ export default function App() {
               <div className="subsection-box">
                 <h3>Расход в коллекторе</h3>
                 <p className="compact-note">q20, n, mr, γ и P вводятся вручную по принятому дождевому району и условиям расположения коллектора. tcan учитывается только при наличии открытых канав/лотков; если их нет — 0.</p>
+                <div className="link-row">
+                  <HelpLink href={helpLinks.rain}>Дождевые параметры</HelpLink>
+                  <HelpLink href={helpLinks.rainType}>Тип дождя / P</HelpLink>
+                  <HelpLink href={helpLinks.layer}>Слои и районы</HelpLink>
+                </div>
                 <div className="dense-grid three-columns">
                   <NumberField label="Площадь участка" value={projectForCalc.rainFlow.areaHa} readOnly unit="га" onChange={() => undefined} />
                   <NormativeInput compact showSlider={false} label="q20" value={project.rainFlow.q20} onChange={(q20) => setProject({ ...project, rainFlow: { ...project.rainFlow, q20 } })} />
@@ -309,6 +324,10 @@ export default function App() {
 
               <div className="subsection-box">
                 <h3>Очистка дождевого стока</h3>
+                <div className="link-row">
+                  <HelpLink href={helpLinks.layer}>Объем дождя на очистку</HelpLink>
+                  <HelpLink href={helpLinks.rainType}>Слои и районы</HelpLink>
+                </div>
                 <div className="dense-grid two-columns">
                   <NumberField label="Площадь на очистку" value={projectForCalc.treatment.rainTreatmentAreaHa} readOnly unit="га" onChange={() => undefined} />
                   <NormativeInput compact showSlider={false} label="ha, слой дождя" value={project.climate.haRainTreatmentMm} onChange={(haRainTreatmentMm) => setProject({ ...project, climate: { ...project.climate, haRainTreatmentMm } })} />
@@ -321,7 +340,7 @@ export default function App() {
           </SectionCard>
 
           <SectionCard step="5" title="Очистные сооружения и резервуар">
-            <p className="compact-note">Фактический рабочий объем резервуара вводится вручную для проверки. Требуемый рабочий и полный объемы рассчитываются ниже. Расчетные сутки снеготаяния показываются только если период переработки талого стока больше 24 ч.</p>
+            <p className="compact-note">Здесь задаются только режимы и периоды переработки. Требуемый рабочий и полный объем резервуара смотри в результатах справа.</p>
             <div className="dense-grid three-columns">
               <NumberField label="Переработка дождя" value={project.treatment.rainProcessingHours} step="1" unit="ч" onChange={(rainProcessingHours) => setProject(updateTreatment(project, { rainProcessingHours }))} />
               <NumberField
@@ -339,9 +358,6 @@ export default function App() {
               ) : null}
               <NumberField label="Отстаивание" value={project.treatment.settlingHours} step="1" unit="ч" onChange={(settlingHours) => setProject(updateTreatment(project, { settlingHours }))} />
               <NumberField label="Технологические перерывы" value={project.treatment.technicalBreakHours} step="1" unit="ч" onChange={(technicalBreakHours) => setProject(updateTreatment(project, { technicalBreakHours }))} />
-              <NumberField label="Фактический рабочий объем резервуара" value={project.treatment.reservoirWorkingVolumeM3} step="0.1" unit="м³" min={results.treatment.requiredReservoirWorkingVolumeM3} onChange={(reservoirWorkingVolumeM3) => setProject(updateTreatment(project, { reservoirWorkingVolumeM3 }))} />
-              <NumberField label="Требуемый рабочий объем" value={results.treatment.requiredReservoirWorkingVolumeM3} step="0.1" unit="м³" readOnly onChange={() => undefined} />
-              <NumberField label="Требуемый полный объем" value={results.treatment.requiredReservoirFullVolumeM3} step="0.1" unit="м³" readOnly onChange={() => undefined} />
               <NormativeInput compact showSlider label="Запас резервуара" value={project.treatment.reservoirReservePercent} onChange={(reservoirReservePercent) => setProject(updateTreatment(project, { reservoirReservePercent }))} />
               <label className="field compact-field select-field">
                 <span className="field-label">Режим резервуара</span>
@@ -366,10 +382,6 @@ export default function App() {
         <aside className="right-column">
           <ResultsPanel results={results} />
           <ValidationPanel issues={issues} />
-          <section className="card actions-card">
-            <h2>Действия</h2>
-            <button type="button" className="primary-button wide" onClick={exportWord}>Скачать Word-отчет</button>
-          </section>
         </aside>
       </div>
     </main>
