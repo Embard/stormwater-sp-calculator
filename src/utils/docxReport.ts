@@ -26,6 +26,11 @@ function formatTrim(value: number, digits = 4): string {
   }).format(value);
 }
 
+function round(value: number, digits: number): number {
+  const factor = Math.pow(10, digits);
+  return Math.round((value + Number.EPSILON) * factor) / factor;
+}
+
 function sumArea(surfaces: SurfaceItem[], predicate: (surface: SurfaceItem) => boolean): number {
   return surfaces.filter(predicate).reduce((sum, surface) => sum + surface.areaHa, 0);
 }
@@ -55,13 +60,27 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
   const n = input.rainFlow.n.value;
   const q5 = Math.pow(4, n) * q20;
   const roofFlow = (roofAreaM2 * q5) / 10000;
-  const flowExponent = 1.2 * n - 0.1;
+  const flowExponentRaw = 1.2 * n - 0.1;
+
+  // Для отчета результат Qr считаем по тем же округленным значениям, которые видны в подстановке.
+  // Иначе получается визуальное несоответствие: в строке подстановки стоят округленные числа,
+  // а итог Qr берется из точных внутренних значений калькулятора.
+  const zmidForReport = round(input.rainFlow.zMid.value, 3);
+  const parameterAForReport = round(results.rainFlow.parameterA, 2);
+  const rainFlowAreaForReport = round(input.rainFlow.areaHa || treatmentAreaHa, 4);
+  const trForReport = round(results.rainFlow.trMin, 1);
+  const flowExponentForReport = round(flowExponentRaw, 2);
+  const qrForReport = trForReport > 0
+    ? (zmidForReport * Math.pow(parameterAForReport, 1.2) * rainFlowAreaForReport) / Math.pow(trForReport, flowExponentForReport)
+    : 0;
   const beta = 0.75;
-  const qcal = results.rainFlow.qrLS * beta;
+  const qcalForReport = qrForReport * beta;
 
   return {
     objectName: input.objectName,
 
+    // Важно: это площадь покрытия с типом «Кровли», переведенная из га в м².
+    // Например 1,3496 га = 13 496 м². Это не общая площадь объекта.
     roofAreaM2: formatNumber(roofAreaM2, 0),
     q5: formatNumber(q5, 2),
     roofFlow: formatNumber(roofFlow, 2),
@@ -97,7 +116,7 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
     rainTreatmentAreaHa: formatTrim(treatmentAreaHa, 4),
     zCoverHard: formatTrim(weightedValue(input.surfaces, 'coverCoeff', hardPredicate), 4),
     zCoverLawn: formatTrim(weightedValue(input.surfaces, 'coverCoeff', lawnPredicate), 4),
-    zmid: formatNumber(input.rainFlow.zMid.value, 3),
+    zmid: formatNumber(zmidForReport, 3),
     psiDesignHard: formatTrim(weightedValue(input.surfaces, 'designRainCoeff', hardPredicate), 4),
     psiDesignLawn: formatTrim(weightedValue(input.surfaces, 'designRainCoeff', lawnPredicate), 4),
     psimid: formatNumber(input.treatment.rainTreatmentCoeff.value, 3),
@@ -106,19 +125,19 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
     dailyMeltVolume: formatNumber(results.treatment.dailyMeltVolumeM3, 3),
     snowCleanedAreaHa: formatTrim(input.snowCleanedAreaHa, 4),
 
-    parameterA: formatNumber(results.rainFlow.parameterA, 2),
-    rainFlowAreaHa: formatTrim(input.rainFlow.areaHa || treatmentAreaHa, 4),
-    tr: formatNumber(results.rainFlow.trMin, 1),
+    parameterA: formatNumber(parameterAForReport, 2),
+    rainFlowAreaHa: formatTrim(rainFlowAreaForReport, 4),
+    tr: formatNumber(trForReport, 1),
     tp: formatNumber(results.rainFlow.tpMin, 1),
     tcon: formatTrim(input.rainFlow.tConMin.value, 1),
     tcan: formatTrim(input.rainFlow.tCanMin.value, 1),
-    flowExponent: formatNumber(flowExponent, 2),
-    qr: formatNumber(results.rainFlow.qrLS, 2),
+    flowExponent: formatNumber(flowExponentForReport, 2),
+    qr: formatNumber(qrForReport, 2),
     p: formatTrim(input.rainFlow.p.value, 2),
     gamma: formatTrim(input.rainFlow.gamma.value, 2),
     mr: formatTrim(input.rainFlow.mr.value, 0),
     beta: formatTrim(beta, 2),
-    qcal: formatNumber(qcal, 2),
+    qcal: formatNumber(qcalForReport, 2),
 
     engineerName: 'Иванов И.И',
     reportDate: '00.00.2000'
@@ -145,8 +164,8 @@ function replaceContentControls(xml: string, values: Record<string, string>): st
 }
 
 function replaceKnownPlainPlaceholders(xml: string, values: Record<string, string>): string {
-  // В загруженном шаблоне часть значений была оставлена обычным текстом, а не Content Control.
-  // Здесь заменяем только безопасные одиночные маркеры, которые в шаблоне используются как значения.
+  // Резервная замена на случай, если отдельный маркер случайно оставлен обычным текстом.
+  // Основной режим — Content Controls по тегам.
   const safePlainKeys = ['q5', 'lawnAreaHa', 'engineerName', 'reportDate'];
   let nextXml = xml;
   for (const key of safePlainKeys) {
