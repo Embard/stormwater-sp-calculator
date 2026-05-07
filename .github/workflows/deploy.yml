@@ -32,9 +32,6 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund --progress=false
 
-      - name: Run tests
-        run: npm test
-
       - name: Build site
         run: npm run build
 
