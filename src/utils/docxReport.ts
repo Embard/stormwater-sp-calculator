@@ -30,18 +30,15 @@ function sumArea(surfaces: SurfaceItem[], predicate: (surface: SurfaceItem) => b
   return surfaces.filter(predicate).reduce((sum, surface) => sum + surface.areaHa, 0);
 }
 
-function coefficientExpression(
+function weightedValue(
   surfaces: SurfaceItem[],
   coefficientKey: 'annualRainCoeff' | 'coverCoeff' | 'designRainCoeff',
-  predicate: (surface: SurfaceItem) => boolean = () => true
-): string {
+  predicate: (surface: SurfaceItem) => boolean
+): number {
   const selected = surfaces.filter(predicate).filter((surface) => surface.areaHa > 0);
   const area = selected.reduce((sum, surface) => sum + surface.areaHa, 0);
-  if (selected.length === 0 || area <= 0) return '(0)/0';
-  const numerator = selected
-    .map((surface) => `${formatTrim(surface[coefficientKey].value, 4)}*${formatTrim(surface.areaHa, 4)}`)
-    .join('+');
-  return `(${numerator})/${formatTrim(area, 4)}`;
+  if (selected.length === 0 || area <= 0) return 0;
+  return selected.reduce((sum, surface) => sum + surface[coefficientKey].value * surface.areaHa, 0) / area;
 }
 
 function buildReportValues(input: ProjectInput, results: CalculationResults): Record<string, string> {
@@ -49,58 +46,119 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
   const roofAreaM2 = roofAreaHa * 10000;
   const hardAreaHa = sumArea(input.surfaces, (surface) => surface.isHardSurface);
   const lawnAreaHa = sumArea(input.surfaces, (surface) => surface.kind === 'lawn' || surface.templateId === 'lawn');
-  const treatmentPredicate = (surface: SurfaceItem) => surface.routedToTreatment;
   const treatmentAreaHa = input.treatment.rainTreatmentAreaHa > 0 ? input.treatment.rainTreatmentAreaHa : input.totalAreaHa;
+
+  const hardPredicate = (surface: SurfaceItem) => surface.isHardSurface;
+  const lawnPredicate = (surface: SurfaceItem) => surface.kind === 'lawn' || surface.templateId === 'lawn';
 
   const q20 = input.rainFlow.q20.value;
   const n = input.rainFlow.n.value;
   const q5 = Math.pow(4, n) * q20;
   const roofFlow = (roofAreaM2 * q5) / 10000;
-  const exponent = 1.2 * n - 0.1;
-  const qcal = results.rainFlow.qrLS * 0.75;
-  const annualTotalNoWash = results.annual.annualRainVolumeM3 + results.annual.annualMeltVolumeM3;
+  const flowExponent = 1.2 * n - 0.1;
+  const beta = 0.75;
+  const qcal = results.rainFlow.qrLS * beta;
 
   return {
     objectName: input.objectName,
+
     roofAreaM2: formatNumber(roofAreaM2, 0),
     q5: formatNumber(q5, 2),
     roofFlow: formatNumber(roofFlow, 2),
     q20: formatTrim(q20, 2),
     n: formatTrim(n, 3),
+    nForA: formatTrim(n, 3),
+
     hardAreaHa: formatTrim(hardAreaHa, 4),
     lawnAreaHa: formatTrim(lawnAreaHa, 4),
     totalAreaHa: formatTrim(input.totalAreaHa, 4),
+
     hd: formatTrim(input.climate.hdWarmPeriodMm.value, 0),
     ht: formatTrim(input.climate.htColdPeriodMm.value, 0),
+    hc: formatTrim(input.climate.hcMeltTenHourMm.value, 0),
+    haRainTreatment: formatTrim(input.climate.haRainTreatmentMm.value, 0),
+
     psiAnnual: formatNumber(results.annual.weightedAnnualRainCoeff, 2),
-    psiAnnualExpression: coefficientExpression(input.surfaces, 'annualRainCoeff'),
+    psiAnnualHard: formatTrim(weightedValue(input.surfaces, 'annualRainCoeff', hardPredicate), 4),
+    psiAnnualLawn: formatTrim(weightedValue(input.surfaces, 'annualRainCoeff', lawnPredicate), 4),
     psiMelt: formatTrim(input.snowMeltCoeff.value, 3),
     ky: formatNumber(results.annual.snowRemovalCoeffKy, 4),
+    meltUnevennessCoeff: formatTrim(input.meltUnevennessCoeff.value, 3),
+
     annualRainVolume: formatNumber(results.annual.annualRainVolumeM3, 2),
     annualMeltVolume: formatNumber(results.annual.annualMeltVolumeM3, 2),
-    annualTotalNoWashVolume: formatNumber(annualTotalNoWash, 2),
+    washingRate: formatTrim(input.washingRateLPerM2.value, 2),
+    washingCoeff: formatTrim(input.washingRunoffCoeff.value, 3),
+    washingAreaHa: formatTrim(input.washingAreaHa, 4),
+    washingCount: formatTrim(input.washingCountPerYear, 0),
+    washingVolume: formatNumber(results.annual.washingVolumeM3, 2),
+    annualTotalVolume: formatNumber(results.annual.totalAnnualVolumeM3, 2),
+
+    rainTreatmentAreaHa: formatTrim(treatmentAreaHa, 4),
+    zCoverHard: formatTrim(weightedValue(input.surfaces, 'coverCoeff', hardPredicate), 4),
+    zCoverLawn: formatTrim(weightedValue(input.surfaces, 'coverCoeff', lawnPredicate), 4),
     zmid: formatNumber(input.rainFlow.zMid.value, 3),
-    zmidExpression: coefficientExpression(input.surfaces, 'coverCoeff', treatmentPredicate),
+    psiDesignHard: formatTrim(weightedValue(input.surfaces, 'designRainCoeff', hardPredicate), 4),
+    psiDesignLawn: formatTrim(weightedValue(input.surfaces, 'designRainCoeff', lawnPredicate), 4),
     psimid: formatNumber(input.treatment.rainTreatmentCoeff.value, 3),
-    psimidExpression: coefficientExpression(input.surfaces, 'designRainCoeff', treatmentPredicate),
     dailyRainVolume: formatNumber(results.treatment.rainTreatmentVolumeM3, 2),
+
     dailyMeltVolume: formatNumber(results.treatment.dailyMeltVolumeM3, 3),
+    snowCleanedAreaHa: formatTrim(input.snowCleanedAreaHa, 4),
+
     parameterA: formatNumber(results.rainFlow.parameterA, 2),
     rainFlowAreaHa: formatTrim(input.rainFlow.areaHa || treatmentAreaHa, 4),
     tr: formatNumber(results.rainFlow.trMin, 1),
     tp: formatNumber(results.rainFlow.tpMin, 1),
     tcon: formatTrim(input.rainFlow.tConMin.value, 1),
     tcan: formatTrim(input.rainFlow.tCanMin.value, 1),
-    flowExponent: formatNumber(exponent, 2),
+    flowExponent: formatNumber(flowExponent, 2),
     qr: formatNumber(results.rainFlow.qrLS, 2),
     p: formatTrim(input.rainFlow.p.value, 2),
     gamma: formatTrim(input.rainFlow.gamma.value, 2),
     mr: formatTrim(input.rainFlow.mr.value, 0),
-    qcal: formatNumber(qcal, 2)
+    beta: formatTrim(beta, 2),
+    qcal: formatNumber(qcal, 2),
+
+    engineerName: 'Иванов И.И',
+    reportDate: '00.00.2000'
   };
 }
 
-async function replacePlaceholdersInZip(zip: JSZip, values: Record<string, string>) {
+function replaceContentControls(xml: string, values: Record<string, string>): string {
+  return xml.replace(/<w:sdt\b[\s\S]*?<\/w:sdt>/g, (block) => {
+    const tagMatch = block.match(/<w:tag\s+w:val="([^"]*)"\s*\/>/);
+    const aliasMatch = block.match(/<w:alias\s+w:val="([^"]*)"\s*\/>/);
+    const key = tagMatch?.[1] || aliasMatch?.[1] || '';
+    if (!key || values[key] === undefined) return block;
+
+    const value = escapeXml(values[key]);
+    let didReplaceFirstTextNode = false;
+    return block.replace(/<w:t(\s[^>]*)?>[\s\S]*?<\/w:t>/g, (textNode, attrs = '') => {
+      if (!didReplaceFirstTextNode) {
+        didReplaceFirstTextNode = true;
+        return `<w:t${attrs}>${value}</w:t>`;
+      }
+      return `<w:t${attrs}></w:t>`;
+    });
+  });
+}
+
+function replaceKnownPlainPlaceholders(xml: string, values: Record<string, string>): string {
+  // В загруженном шаблоне часть значений была оставлена обычным текстом, а не Content Control.
+  // Здесь заменяем только безопасные одиночные маркеры, которые в шаблоне используются как значения.
+  const safePlainKeys = ['q5', 'lawnAreaHa', 'engineerName', 'reportDate'];
+  let nextXml = xml;
+  for (const key of safePlainKeys) {
+    if (values[key] === undefined) continue;
+    const value = escapeXml(values[key]);
+    nextXml = nextXml.split(`<w:t>${key}</w:t>`).join(`<w:t>${value}</w:t>`);
+    nextXml = nextXml.split(`<w:t xml:space="preserve">${key}</w:t>`).join(`<w:t xml:space="preserve">${value}</w:t>`);
+  }
+  return nextXml;
+}
+
+async function replaceReportValuesInZip(zip: JSZip, values: Record<string, string>) {
   const xmlFiles = Object.keys(zip.files).filter((path) => path.startsWith('word/') && path.endsWith('.xml'));
 
   await Promise.all(
@@ -108,10 +166,8 @@ async function replacePlaceholdersInZip(zip: JSZip, values: Record<string, strin
       const file = zip.file(path);
       if (!file) return;
       let xml = await file.async('string');
-      for (const [key, rawValue] of Object.entries(values)) {
-        const value = escapeXml(rawValue);
-        xml = xml.split(`{{${key}}}`).join(value);
-      }
+      xml = replaceContentControls(xml, values);
+      xml = replaceKnownPlainPlaceholders(xml, values);
       zip.file(path, xml);
     })
   );
@@ -127,7 +183,7 @@ export async function downloadDocxReport(input: ProjectInput, results: Calculati
   const templateBuffer = await response.arrayBuffer();
   const zip = await JSZip.loadAsync(templateBuffer);
   const values = buildReportValues(input, results);
-  await replacePlaceholdersInZip(zip, values);
+  await replaceReportValuesInZip(zip, values);
 
   const blob = await zip.generateAsync({
     type: 'blob',
