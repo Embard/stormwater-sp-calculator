@@ -12,16 +12,16 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
+    "jszip": "latest",
     "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
     "typescript": "latest",
-    "vite": "latest",
-    "jszip": "latest"
+    "vite": "latest"
   },
   "devDependencies": {
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
     "jsdom": "latest",
     "vitest": "latest"
   }
