@@ -1,9 +1,9 @@
 import { Fragment } from 'react';
 import { Plus, X } from 'lucide-react';
 import { NormativeInput } from './NormativeInput';
+import { NumericInput } from './NumericInput';
 import { applySurfaceTemplate, buildSurfaceFromTemplate, getSurfaceTemplate, SURFACE_TEMPLATES } from '../data/surfaceCatalog';
 import type { SurfaceItem } from '../types';
-import { formatNumericInput, parseNumericInput } from '../utils/numberInput';
 import { formatNumber } from '../utils/rounding';
 
 type Props = {
@@ -45,12 +45,10 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
         <div className="surface-head-actions">
           <label className="field compact-field total-area-field">
             <span className="field-label">Общая площадь, га</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={formatNumericInput(totalAreaHa)}
-              onFocus={(event) => event.currentTarget.select()}
-              onChange={(event) => onTotalAreaChange(parseNumericInput(event.target.value))}
+            <NumericInput
+              value={totalAreaHa}
+              onChange={onTotalAreaChange}
+              ariaLabel="Общая площадь, га"
             />
           </label>
           <button
@@ -92,12 +90,10 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
 
               <div className="surface-cell">
                 <label className="field compact-field cell-field">
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={formatNumericInput(surface.areaHa)}
-                    onFocus={(event) => event.currentTarget.select()}
-                    onChange={(event) => updateSurface(surface.id, { areaHa: parseNumericInput(event.target.value) })}
+                  <NumericInput
+                    value={surface.areaHa}
+                    onChange={(areaHa) => updateSurface(surface.id, { areaHa })}
+                    ariaLabel="Площадь покрытия, га"
                   />
                 </label>
               </div>

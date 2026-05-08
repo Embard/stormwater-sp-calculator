@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Calculator, FileText } from 'lucide-react';
 import './styles/app.css';
 import climateStations from './data/climateStations.json';
@@ -10,7 +10,7 @@ import { ResultsPanel } from './components/ResultsPanel';
 import { SurfaceTable } from './components/SurfaceTable';
 import { ValidationPanel } from './components/ValidationPanel';
 import { buildSurfaceFromTemplate } from './data/surfaceCatalog';
-import { formatNumericInput, normalizeNumericInput, parseNumericInput } from './utils/numberInput';
+import { NumericInput } from './components/NumericInput';
 import { downloadDocxReport } from './utils/docxReport';
 import type { ClimateParameters, NormativeValue, ProjectInput, TreatmentInput } from './types';
 
@@ -107,35 +107,24 @@ type NumberFieldProps = {
 };
 
 function NumberField({ label, value, onChange, step = '0.0001', unit, readOnly = false, min, max, showSlider = false }: NumberFieldProps) {
-  const [textValue, setTextValue] = useState(formatNumericInput(value));
   const hasMin = min !== undefined;
   const hasMax = max !== undefined;
   const hasRange = hasMin && hasMax && min !== max;
   const isOutOfRange = (hasMin && value < min!) || (hasMax && value > max!);
   const hasSlider = showSlider && hasRange && !readOnly;
 
-  useEffect(() => {
-    setTextValue(formatNumericInput(value));
-  }, [value]);
-
-  const commitText = (raw: string) => {
-    const normalized = normalizeNumericInput(raw);
-    setTextValue(normalized);
-    onChange(parseNumericInput(normalized));
-  };
-
   return (
     <label className={`field compact-field ${isOutOfRange ? 'out-of-range' : ''}`}>
       <span className="field-label">{label}</span>
       <div className="input-row">
-        <input
-          type="text"
-          inputMode="decimal"
-          value={textValue}
+        <NumericInput
+          value={value}
           readOnly={readOnly}
-          onFocus={(event) => event.currentTarget.select()}
-          onChange={(event) => commitText(event.target.value)}
-          onBlur={() => setTextValue(formatNumericInput(value))}
+          step={step}
+          min={min}
+          max={max}
+          onChange={onChange}
+          ariaLabel={label}
         />
         {unit ? <span className="unit">{unit}</span> : null}
       </div>
@@ -148,7 +137,7 @@ function NumberField({ label, value, onChange, step = '0.0001', unit, readOnly =
           max={max}
           step={step}
           value={value}
-          onChange={(event) => commitText(event.target.value)}
+          onChange={(event) => onChange(Number(event.target.value))}
         />
       ) : null}
     </label>

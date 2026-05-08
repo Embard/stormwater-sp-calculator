@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
 import type { NormativeValue } from '../types';
-import { formatNumericInput, normalizeNumericInput, parseNumericInput } from '../utils/numberInput';
+import { parseNumericInput } from '../utils/numberInput';
+import { NumericInput } from './NumericInput';
 
 type Props = {
   label?: string;
@@ -25,35 +25,21 @@ export function NormativeInput({
   showSlider = true,
   readOnly = false
 }: Props) {
-  const [textValue, setTextValue] = useState(formatNumericInput(value.value));
   const hasMin = value.min !== undefined;
   const hasMax = value.max !== undefined;
   const hasRange = hasMin && hasMax && value.min !== value.max;
   const hasAdjustableRange = hasRange;
   const outOfRange = (hasMin && value.value < value.min!) || (hasMax && value.value > value.max!);
 
-  useEffect(() => {
-    setTextValue(formatNumericInput(value.value));
-  }, [value.value]);
-
-  const commitText = (raw: string) => {
-    const normalized = normalizeNumericInput(raw);
-    setTextValue(normalized);
-    onChange({ ...value, value: parseNumericInput(normalized) });
-  };
-
   return (
     <label className={`field ${compact ? 'compact-field' : ''} ${outOfRange ? 'out-of-range' : ''}`}>
       {label ? <span className="field-label">{label}</span> : null}
       <div className="input-row">
-        <input
-          type="text"
-          inputMode="decimal"
-          value={textValue}
+        <NumericInput
+          value={value.value}
           readOnly={readOnly}
-          onFocus={(event) => event.currentTarget.select()}
-          onChange={(event) => commitText(event.target.value)}
-          onBlur={() => setTextValue(formatNumericInput(value.value))}
+          onChange={(nextValue) => onChange({ ...value, value: nextValue })}
+          ariaLabel={label ?? 'Нормативное значение'}
         />
         {value.unit !== '-' ? <span className="unit">{value.unit}</span> : null}
       </div>

@@ -264,7 +264,7 @@ select:focus {
 }
 
 .surface-head-row { margin-bottom: 12px; }
-.total-area-field { width: 160px; }
+.total-area-field { width: 200px; min-width: 180px; }
 .surface-grid-table {
   display: grid;
   grid-template-columns: minmax(220px, 2.2fr) minmax(110px, 1fr) minmax(190px, 1.5fr) minmax(190px, 1.5fr) 62px 62px 42px;
