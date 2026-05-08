@@ -19,6 +19,8 @@ const initialClimate = climateStations[0] as ClimateParameters;
 
 const initialProject: ProjectInput = {
   objectName: 'Тестовый пример Козенки',
+  engineerName: 'Иванов И.И',
+  reportDate: new Date().toLocaleDateString('ru-RU'),
   place: {
     id: 'kozenki-mo',
     name: 'Козенки',
@@ -238,15 +240,6 @@ export default function App() {
   const results = useMemo(() => calculateProject(projectForCalc), [projectForCalc]);
   const issues = useMemo(() => validateProject(projectForCalc), [projectForCalc]);
 
-  const handleDownloadReport = async () => {
-    try {
-      await downloadDocxReport(projectForCalc, results);
-    } catch (error) {
-      console.error(error);
-      alert(error instanceof Error ? error.message : 'Не удалось сформировать Word-отчет.');
-    }
-  };
-
   return (
     <main className="app-shell">
       <header className="topbar no-print">
@@ -254,19 +247,42 @@ export default function App() {
           <span className="eyebrow">СП 32.13330.2018 с изменениями</span>
           <h1><Calculator size={22} /> Калькулятор ливневого стока</h1>
         </div>
+        <div className="topbar-actions">
+          <button type="button" className="primary-button" onClick={() => downloadDocxReport(projectForCalc, results)}>
+            <FileText size={16} /> Скачать Word-отчет
+          </button>
+        </div>
       </header>
 
       <div className="layout no-print">
         <div className="left-column">
           <SectionCard step="1" title="Объект">
-            <label className="field compact-field object-name-field">
-              <span className="field-label">Наименование объекта</span>
-              <input
-                value={project.objectName}
-                onFocus={(event) => event.currentTarget.select()}
-                onChange={(event) => setProject({ ...project, objectName: event.target.value })}
-              />
-            </label>
+            <div className="dense-grid three-columns">
+              <label className="field compact-field object-name-field">
+                <span className="field-label">Наименование объекта</span>
+                <input
+                  value={project.objectName}
+                  onFocus={(event) => event.currentTarget.select()}
+                  onChange={(event) => setProject({ ...project, objectName: event.target.value })}
+                />
+              </label>
+              <label className="field compact-field">
+                <span className="field-label">Инженер</span>
+                <input
+                  value={project.engineerName}
+                  onFocus={(event) => event.currentTarget.select()}
+                  onChange={(event) => setProject({ ...project, engineerName: event.target.value })}
+                />
+              </label>
+              <label className="field compact-field">
+                <span className="field-label">Дата отчета</span>
+                <input
+                  value={project.reportDate}
+                  onFocus={(event) => event.currentTarget.select()}
+                  onChange={(event) => setProject({ ...project, reportDate: event.target.value })}
+                />
+              </label>
+            </div>
           </SectionCard>
 
           <SurfaceTable
@@ -392,12 +408,6 @@ export default function App() {
         <aside className="right-column">
           <ResultsPanel results={results} />
           <ValidationPanel issues={issues} />
-          <section className="card actions-card">
-            <h2>Отчет</h2>
-            <button type="button" className="primary-button wide" onClick={handleDownloadReport}>
-              <FileText size={16} /> Скачать Word-отчет
-            </button>
-          </section>
         </aside>
       </div>
     </main>

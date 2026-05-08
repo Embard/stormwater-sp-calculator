@@ -139,8 +139,28 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
     beta: formatTrim(beta, 2),
     qcal: formatNumber(qcalForReport, 2),
 
-    engineerName: 'Иванов И.И',
-    reportDate: '00.00.2000'
+    engineerName: input.engineerName || 'Иванов И.И',
+    reportDate: input.reportDate || new Date().toLocaleDateString('ru-RU'),
+
+    pollutedRainFraction: formatTrim(input.treatment.pollutedRainFraction.value, 3),
+    rainProcessingHours: formatTrim(input.treatment.rainProcessingHours, 0),
+    meltProcessingHours: formatTrim(input.treatment.meltProcessingHours, 0),
+    meltConsecutiveDays: formatTrim(input.treatment.meltConsecutiveDays, 0),
+    settlingHours: formatTrim(input.treatment.settlingHours, 0),
+    technicalBreakHours: formatTrim(input.treatment.technicalBreakHours, 0),
+    rainActiveProcessingHours: formatTrim(Math.max(0, input.treatment.rainProcessingHours - input.treatment.settlingHours - input.treatment.technicalBreakHours), 0),
+    meltActiveProcessingHours: formatTrim(Math.max(0, input.treatment.meltProcessingHours - input.treatment.settlingHours - input.treatment.technicalBreakHours), 0),
+    meltResidualPerDay: formatNumber(results.treatment.meltResidualPerDayM3, 2),
+    requiredMeltWorkingVolume: formatNumber(results.treatment.requiredMeltWorkingVolumeM3, 2),
+    requiredReservoirWorkingVolume: formatNumber(results.treatment.requiredReservoirWorkingVolumeM3, 2),
+    requiredReservoirControlCase: results.treatment.reservoirControlCase === 'melt' ? 'талому стоку' : 'дождевому стоку',
+    reservoirReservePercent: formatTrim(input.treatment.reservoirReservePercent.value, 2),
+    requiredReservoirFullVolume: formatNumber(results.treatment.requiredReservoirFullVolumeM3, 2),
+    reservoirWorkingVolume: formatNumber(input.treatment.reservoirWorkingVolumeM3, 2),
+    reservoirCheckResult: input.treatment.reservoirWorkingVolumeM3 >= results.treatment.requiredReservoirWorkingVolumeM3 ? 'выполняется' : 'не выполняется',
+    rainTreatmentCapacity: formatNumber(results.treatment.rainTreatmentCapacityM3PerH, 2),
+    meltTreatmentCapacity: formatNumber(results.treatment.meltTreatmentCapacityM3PerH, 2),
+    selectedTreatmentCapacity: formatNumber(results.treatment.selectedTreatmentCapacityM3PerH, 2)
   };
 }
 

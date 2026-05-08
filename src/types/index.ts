@@ -93,6 +93,8 @@ export type TreatmentInput = {
 
 export type ProjectInput = {
   objectName: string;
+  engineerName: string;
+  reportDate: string;
   place: PlaceMatch;
   climate: ClimateParameters;
   totalAreaHa: number;
