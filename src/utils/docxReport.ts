@@ -105,6 +105,7 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
     psiAnnualHard: formatTrim(weightedValue(input.surfaces, 'annualRainCoeff', hardPredicate), 4),
     psiAnnualLawn: formatTrim(weightedValue(input.surfaces, 'annualRainCoeff', lawnPredicate), 4),
     psiMelt: formatTrim(input.snowMeltCoeff.value, 3),
+    psiMeltDaily: formatTrim(input.dailyMeltRunoffCoeff.value, 3),
     ky: formatNumber(results.annual.snowRemovalCoeffKy, 4),
     meltUnevennessCoeff: formatTrim(input.meltUnevennessCoeff.value, 3),
 
