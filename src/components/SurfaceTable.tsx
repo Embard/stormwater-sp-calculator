@@ -13,7 +13,7 @@ type Props = {
   onChange: (surfaces: SurfaceItem[]) => void;
 };
 
-function isSliderNeeded(surface: SurfaceItem, key: 'annualRainCoeff' | 'designRainCoeff') {
+function isSliderNeeded(surface: SurfaceItem, key: 'annualRainCoeff' | 'coverCoeff' | 'designRainCoeff') {
   const coeff = surface[key];
   return coeff.min !== undefined && coeff.max !== undefined && coeff.min !== coeff.max;
 }
@@ -35,7 +35,7 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
         <div>
           <span className="step-label">2</span>
           <h2>Покрытия и расчетная площадь</h2>
-          <p className="section-subtitle">ψд — годовой коэффициент. Ψ — постоянный коэффициент для расчетного дождя и очистки.</p>
+          <p className="section-subtitle">ψд — годовой коэффициент стока; Z — коэффициент покрова; Ψ — постоянный коэффициент стока для расчетного дождя и очистки.</p>
           <div className="legend-row">
             <span><b>Мойка</b> — покрытие входит в площадь поливомоечных вод.</span>
             <span><b>Уборка снега</b> — покрытие входит в площадь, очищаемую от снега.</span>
@@ -65,6 +65,7 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
         <div className="surface-grid-header">Покрытие</div>
         <div className="surface-grid-header">Площадь, га</div>
         <div className="surface-grid-header">ψд годовой</div>
+        <div className="surface-grid-header">Z покрова</div>
         <div className="surface-grid-header">Ψ расчетный</div>
         <div className="surface-grid-header center" title="Покрытие входит в площадь поливомоечных вод">Мойка</div>
         <div className="surface-grid-header center" title="Покрытие входит в площадь уборки снега">Уборка снега</div>
@@ -104,6 +105,15 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
                   value={surface.annualRainCoeff}
                   showSlider={isSliderNeeded(surface, 'annualRainCoeff')}
                   onChange={(annualRainCoeff) => updateSurface(surface.id, { annualRainCoeff })}
+                />
+              </div>
+
+              <div className="surface-cell">
+                <NormativeInput
+                  compact
+                  value={surface.coverCoeff}
+                  showSlider={isSliderNeeded(surface, 'coverCoeff')}
+                  onChange={(coverCoeff) => updateSurface(surface.id, { coverCoeff })}
                 />
               </div>
 

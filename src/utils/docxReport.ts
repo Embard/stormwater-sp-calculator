@@ -55,6 +55,10 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
 
   const hardPredicate = (surface: SurfaceItem) => surface.isHardSurface;
   const lawnPredicate = (surface: SurfaceItem) => surface.kind === 'lawn' || surface.templateId === 'lawn';
+  const treatmentHardPredicate = (surface: SurfaceItem) => surface.routedToTreatment && surface.isHardSurface;
+  const treatmentLawnPredicate = (surface: SurfaceItem) => surface.routedToTreatment && (surface.kind === 'lawn' || surface.templateId === 'lawn');
+  const treatmentHardAreaHa = sumArea(input.surfaces, treatmentHardPredicate);
+  const treatmentLawnAreaHa = sumArea(input.surfaces, treatmentLawnPredicate);
 
   const q20 = input.rainFlow.q20.value;
   const n = input.rainFlow.n.value;
@@ -114,11 +118,13 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
     annualTotalVolume: formatNumber(results.annual.totalAnnualVolumeM3, 2),
 
     rainTreatmentAreaHa: formatTrim(treatmentAreaHa, 4),
-    zCoverHard: formatTrim(weightedValue(input.surfaces, 'coverCoeff', hardPredicate), 4),
-    zCoverLawn: formatTrim(weightedValue(input.surfaces, 'coverCoeff', lawnPredicate), 4),
+    treatmentHardAreaHa: formatTrim(treatmentHardAreaHa, 4),
+    treatmentLawnAreaHa: formatTrim(treatmentLawnAreaHa, 4),
+    zCoverHard: formatTrim(weightedValue(input.surfaces, 'coverCoeff', treatmentHardPredicate), 4),
+    zCoverLawn: formatTrim(weightedValue(input.surfaces, 'coverCoeff', treatmentLawnPredicate), 4),
     zmid: formatNumber(zmidForReport, 3),
-    psiDesignHard: formatTrim(weightedValue(input.surfaces, 'designRainCoeff', hardPredicate), 4),
-    psiDesignLawn: formatTrim(weightedValue(input.surfaces, 'designRainCoeff', lawnPredicate), 4),
+    psiDesignHard: formatTrim(weightedValue(input.surfaces, 'designRainCoeff', treatmentHardPredicate), 4),
+    psiDesignLawn: formatTrim(weightedValue(input.surfaces, 'designRainCoeff', treatmentLawnPredicate), 4),
     psimid: formatNumber(input.treatment.rainTreatmentCoeff.value, 3),
     dailyRainVolume: formatNumber(results.treatment.rainTreatmentVolumeM3, 2),
 
@@ -184,17 +190,20 @@ function replaceContentControls(xml: string, values: Record<string, string>): st
 }
 
 function replaceKnownPlainPlaceholders(xml: string, values: Record<string, string>): string {
-  // Резервная замена на случай, если отдельный маркер случайно оставлен обычным текстом.
-  // Основной режим — Content Controls по тегам.
-  const safePlainKeys = ['q5', 'lawnAreaHa', 'engineerName', 'reportDate'];
-  let nextXml = xml;
-  for (const key of safePlainKeys) {
-    if (values[key] === undefined) continue;
-    const value = escapeXml(values[key]);
-    nextXml = nextXml.split(`<w:t>${key}</w:t>`).join(`<w:t>${value}</w:t>`);
-    nextXml = nextXml.split(`<w:t xml:space="preserve">${key}</w:t>`).join(`<w:t xml:space="preserve">${value}</w:t>`);
-  }
-  return nextXml;
+  // Резервная замена для маркеров, которые случайно оставлены обычным текстом,
+  // а не Content Controls. Меняем только содержимое w:t, не трогаем XML-атрибуты.
+  const keys = Object.keys(values)
+    .filter((key) => key.length > 1 && !['n', 'p'].includes(key))
+    .sort((a, b) => b.length - a.length);
+
+  return xml.replace(/<w:t([^>]*)>([^<]*)<\/w:t>/g, (node, attrs = '', text = '') => {
+    let nextText = text;
+    for (const key of keys) {
+      if (!nextText.includes(key)) continue;
+      nextText = nextText.split(key).join(escapeXml(values[key]));
+    }
+    return `<w:t${attrs}>${nextText}</w:t>`;
+  });
 }
 
 async function replaceReportValuesInZip(zip: JSZip, values: Record<string, string>) {
