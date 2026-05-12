@@ -46,6 +46,18 @@ function weightedValue(
   return selected.reduce((sum, surface) => sum + surface[coefficientKey].value * surface.areaHa, 0) / area;
 }
 
+function weightedNumeratorExpression(
+  surfaces: SurfaceItem[],
+  coefficientKey: 'annualRainCoeff' | 'coverCoeff' | 'designRainCoeff',
+  predicate: (surface: SurfaceItem) => boolean
+): string {
+  const selected = surfaces.filter(predicate).filter((surface) => surface.areaHa > 0);
+  if (selected.length === 0) return '0';
+  return selected
+    .map((surface) => `${formatTrim(surface[coefficientKey].value, 4)}×${formatTrim(surface.areaHa, 4)}`)
+    .join('+');
+}
+
 function buildReportValues(input: ProjectInput, results: CalculationResults): Record<string, string> {
   const roofAreaHa = sumArea(input.surfaces, (surface) => surface.kind === 'roof' || surface.templateId === 'roof');
   const roofAreaM2 = roofAreaHa * 10000;
@@ -102,6 +114,7 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
     haRainTreatment: formatTrim(input.climate.haRainTreatmentMm.value, 0),
 
     psiAnnual: formatNumber(results.annual.weightedAnnualRainCoeff, 2),
+    psiAnnualExpression: weightedNumeratorExpression(input.surfaces, 'annualRainCoeff', (surface) => surface.areaHa > 0),
     psiAnnualHard: formatTrim(weightedValue(input.surfaces, 'annualRainCoeff', hardPredicate), 4),
     psiAnnualLawn: formatTrim(weightedValue(input.surfaces, 'annualRainCoeff', lawnPredicate), 4),
     psiMelt: formatTrim(input.snowMeltCoeff.value, 3),
@@ -123,9 +136,11 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
     treatmentLawnAreaHa: formatTrim(treatmentLawnAreaHa, 4),
     zCoverHard: formatTrim(weightedValue(input.surfaces, 'coverCoeff', treatmentHardPredicate), 4),
     zCoverLawn: formatTrim(weightedValue(input.surfaces, 'coverCoeff', treatmentLawnPredicate), 4),
+    zmidExpression: weightedNumeratorExpression(input.surfaces, 'coverCoeff', (surface) => surface.routedToTreatment && surface.areaHa > 0),
     zmid: formatNumber(zmidForReport, 3),
     psiDesignHard: formatTrim(weightedValue(input.surfaces, 'designRainCoeff', treatmentHardPredicate), 4),
     psiDesignLawn: formatTrim(weightedValue(input.surfaces, 'designRainCoeff', treatmentLawnPredicate), 4),
+    psimidExpression: weightedNumeratorExpression(input.surfaces, 'designRainCoeff', (surface) => surface.routedToTreatment && surface.areaHa > 0),
     psimid: formatNumber(input.treatment.rainTreatmentCoeff.value, 3),
     dailyRainVolume: formatNumber(results.treatment.rainTreatmentVolumeM3, 2),
 
@@ -191,19 +206,58 @@ function replaceContentControls(xml: string, values: Record<string, string>): st
 }
 
 function replaceKnownPlainPlaceholders(xml: string, values: Record<string, string>): string {
-  // Резервная замена для маркеров, которые случайно оставлены обычным текстом,
-  // а не Content Controls. Меняем только содержимое w:t, не трогаем XML-атрибуты.
-  const keys = Object.keys(values)
-    .filter((key) => key.length > 1 && !['n', 'p'].includes(key))
-    .sort((a, b) => b.length - a.length);
+  // Резервная замена только для длинных технических маркеров, которые могли остаться обычным текстом.
+  // Короткие обозначения формул q20, n, p, tr, Qr и т.п. здесь намеренно не трогаются:
+  // они должны оставаться буквенными символами формулы, если не являются Content Control.
+  const allowedKeys = [
+    'psiAnnualExpression',
+    'zmidExpression',
+    'psimidExpression',
+    'psiMeltDaily',
+    'meltUnevennessCoeff',
+    'annualRainVolume',
+    'annualMeltVolume',
+    'annualTotalVolume',
+    'washingRate',
+    'washingCoeff',
+    'washingAreaHa',
+    'washingCount',
+    'washingVolume',
+    'rainTreatmentAreaHa',
+    'haRainTreatment',
+    'dailyRainVolume',
+    'dailyMeltVolume',
+    'snowCleanedAreaHa',
+    'totalAreaHa',
+    'meltResidualPerDay',
+    'meltConsecutiveDays',
+    'requiredMeltWorkingVolume',
+    'requiredReservoirWorkingVolume',
+    'requiredReservoirFullVolume',
+    'requiredReservoirControlCase',
+    'reservoirReservePercent',
+    'reservoirWorkingVolume',
+    'reservoirCheckResult',
+    'rainProcessingHours',
+    'meltProcessingHours',
+    'settlingHours',
+    'technicalBreakHours',
+    'rainTreatmentCapacity',
+    'meltTreatmentCapacity',
+    'selectedTreatmentCapacity',
+    'ky',
+    'hc',
+    'ht',
+    'hd'
+  ].filter((key) => values[key] !== undefined).sort((a, b) => b.length - a.length);
 
-  return xml.replace(/<w:t([^>]*)>([^<]*)<\/w:t>/g, (node, attrs = '', text = '') => {
+  return xml.replace(/<w:t(\s[^>]*)?>([^<]*)<\/w:t>/g, (node, attrs = '', text = '') => {
     let nextText = text;
-    for (const key of keys) {
+    for (const key of allowedKeys) {
       if (!nextText.includes(key)) continue;
       nextText = nextText.split(key).join(escapeXml(values[key]));
     }
-    return `<w:t${attrs}>${nextText}</w:t>`;
+    return `<w:t${attrs || ''}>${nextText}</w:t>`;
   });
 }
 

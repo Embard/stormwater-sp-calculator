@@ -303,7 +303,7 @@ export default function App() {
                 <h3>Технологические параметры</h3>
                 <div className="dense-grid two-columns">
                   <NumberField label="Площадь уборки снега" value={projectForCalc.snowCleanedAreaHa} readOnly unit="га" onChange={() => undefined} />
-                  <NormativeInput compact showSlider label="Коэффициент неравномерности снеготаяния" value={project.meltUnevennessCoeff} onChange={(meltUnevennessCoeff) => setProject({ ...project, meltUnevennessCoeff })} />
+                  <NormativeInput compact showSlider label="α неравномерности снеготаяния" value={project.meltUnevennessCoeff} onChange={(meltUnevennessCoeff) => setProject({ ...project, meltUnevennessCoeff })} />
                   <NumberField label="Площадь мойки" value={projectForCalc.washingAreaHa} readOnly unit="га" onChange={() => undefined} />
                   <NormativeInput compact showSlider label="Расход на мойку" value={project.washingRateLPerM2} onChange={(washingRateLPerM2) => setProject({ ...project, washingRateLPerM2 })} />
                   <NumberField label="Количество моек" value={project.washingCountPerYear} step="1" min={100} max={150} showSlider unit="раз/год" onChange={(washingCountPerYear) => setProject({ ...project, washingCountPerYear })} />
