@@ -35,7 +35,7 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
         <div>
           <span className="step-label">2</span>
           <h2>Покрытия и расчетная площадь</h2>
-          <p className="section-subtitle">ψд — годовой коэффициент стока; Z — коэффициент покрова; Ψ — постоянный коэффициент стока для расчетного дождя и очистки.</p>
+          <p className="section-subtitle">Три разных коэффициента: <b>ψд</b> — только для годового объема Wд; <b>Zi</b> — только для расчетного расхода Qr; <b>Ψi</b> — только для объема дождя на очистку Wд.сут.</p>
           <div className="legend-row">
             <span><b>Мойка</b> — покрытие входит в площадь поливомоечных вод.</span>
             <span><b>Уборка снега</b> — покрытие входит в площадь, очищаемую от снега.</span>
@@ -64,9 +64,9 @@ export function SurfaceTable({ surfaces, totalAreaHa, onTotalAreaChange, onChang
       <div className="surface-grid-table">
         <div className="surface-grid-header">Покрытие</div>
         <div className="surface-grid-header">Площадь, га</div>
-        <div className="surface-grid-header">ψд годовой</div>
-        <div className="surface-grid-header">Z покрова</div>
-        <div className="surface-grid-header">Ψ расчетный</div>
+        <div className="surface-grid-header" title="По таблице 7 СП 32. Используется только для годового объема Wд.">ψд для Wд</div>
+        <div className="surface-grid-header" title="Коэффициент покрова Zi. Используется только для Zmid и расхода Qr.">Zi для Qr</div>
+        <div className="surface-grid-header" title="Постоянный коэффициент стока Ψi. Используется только для Ψmid и Wд.сут на очистку.">Ψi для Wд.сут</div>
         <div className="surface-grid-header center" title="Покрытие входит в площадь поливомоечных вод">Мойка</div>
         <div className="surface-grid-header center" title="Покрытие входит в площадь уборки снега">Уборка снега</div>
         <div className="surface-grid-header center" title="Сток с покрытия направляется на очистные сооружения">На очистку</div>

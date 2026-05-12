@@ -329,7 +329,7 @@ export default function App() {
                   <NormativeInput compact showSlider={false} label="n" value={project.rainFlow.n} onChange={(n) => setProject({ ...project, rainFlow: { ...project.rainFlow, n } })} />
                   <NormativeInput compact showSlider={false} label="mr" value={project.rainFlow.mr} onChange={(mr) => setProject({ ...project, rainFlow: { ...project.rainFlow, mr } })} />
                   <NormativeInput compact showSlider={false} label="γ" value={project.rainFlow.gamma} onChange={(gamma) => setProject({ ...project, rainFlow: { ...project.rainFlow, gamma } })} />
-                  <NumberField label="Zmid" value={projectForCalc.rainFlow.zMid.value} readOnly onChange={() => undefined} />
+                  <NumberField label="Zmid по Zi" value={projectForCalc.rainFlow.zMid.value} readOnly onChange={() => undefined} />
                   <NormativeInput compact showSlider={false} label="tcon" value={project.rainFlow.tConMin} onChange={(tConMin) => setProject({ ...project, rainFlow: { ...project.rainFlow, tConMin } })} />
                   <NormativeInput compact showSlider={false} label="tcan, канавы/лотки" value={project.rainFlow.tCanMin} onChange={(tCanMin) => setProject({ ...project, rainFlow: { ...project.rainFlow, tCanMin } })} />
                   <NumberField label="Длина трубы" value={project.rainFlow.pipeLengthM} step="0.01" unit="м" onChange={(pipeLengthM) => setProject({ ...project, rainFlow: { ...project.rainFlow, pipeLengthM } })} />
@@ -346,10 +346,10 @@ export default function App() {
                 <div className="dense-grid two-columns">
                   <NumberField label="Площадь на очистку" value={projectForCalc.treatment.rainTreatmentAreaHa} readOnly unit="га" onChange={() => undefined} />
                   <NormativeInput compact showSlider={false} label="ha, слой дождя" value={project.climate.haRainTreatmentMm} onChange={(haRainTreatmentMm) => setProject({ ...project, climate: { ...project.climate, haRainTreatmentMm } })} />
-                  <NumberField label="Ψ очистки" value={projectForCalc.treatment.rainTreatmentCoeff.value} readOnly onChange={() => undefined} />
+                  <NumberField label="Ψmid по Ψi" value={projectForCalc.treatment.rainTreatmentCoeff.value} readOnly onChange={() => undefined} />
                   <NormativeInput compact showSlider={false} label="Доля объема на очистку" value={project.treatment.pollutedRainFraction} onChange={(pollutedRainFraction) => setProject(updateTreatment(project, { pollutedRainFraction }))} />
                 </div>
-                <p className="compact-note">Площадь на очистку и Ψ рассчитываются по покрытиям с признаком «На очистку». Доля объема на очистку: 1 — весь расчетный дождевой объем идет на очистные; меньше 1 — только при обоснованном разделении потоков.</p>
+                <p className="compact-note">Площадь на очистку и Ψmid считаются по покрытиям с признаком «На очистку» и коэффициенту Ψi. Доля объема на очистку: 1 — весь расчетный дождевой объем идет на очистные; меньше 1 — только при обоснованном разделении потоков.</p>
               </div>
             </div>
           </SectionCard>

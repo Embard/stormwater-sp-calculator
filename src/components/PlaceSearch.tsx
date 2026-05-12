@@ -7,84 +7,30 @@ type Props = {
   onSelect: (place: PlaceMatch) => void;
 };
 
-function manualPlaceFromQuery(query: string): PlaceMatch {
-  const trimmed = query.trim() || 'Ручной ввод';
-  return {
-    id: `manual-${trimmed.toLowerCase().replace(/\s+/g, '-')}`,
-    name: trimmed,
-    region: 'параметры задать вручную',
-    district: undefined,
-    lat: 0,
-    lon: 0,
-    confidence: 0,
-    source: 'manual-map'
-  };
-}
-
 export function PlaceSearch({ value, onSelect }: Props) {
-  const [query, setQuery] = useState(`${value.name} ${value.region}`.replace(' параметры задать вручную', ''));
-  const [showMatches, setShowMatches] = useState(false);
+  const [query, setQuery] = useState(`${value.name} ${value.region}`);
   const matches = useMemo(() => searchLocalPlaces(query), [query]);
-  const alternativeMatches = matches.filter((match) => match.id !== value.id).slice(0, 4);
-  const canUseManual = query.trim().length > 1 && matches.length === 0;
 
   return (
-    <div className="place-search">
-      <label className="field compact-field">
+    <section className="card">
+      <h2>1. Место строительства</h2>
+      <label className="field">
         <span className="field-label">Населенный пункт, район, область</span>
-        <input
-          value={query}
-          onFocus={(event) => event.currentTarget.select()}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Например: Козенки Московская область"
-        />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Например: Козенки Московская область" />
       </label>
-
-      {canUseManual ? (
-        <button
-          type="button"
-          className="secondary-button small-button"
-          onClick={() => onSelect(manualPlaceFromQuery(query))}
-        >
-          Использовать введенное место вручную
-        </button>
-      ) : null}
-
-      <div className={`selected-place compact-selected-place ${value.source === 'manual-map' ? 'manual-place' : ''}`}>
-        <div>
-          <strong>{value.name}</strong>
-          <span>{value.region}{value.district ? `, ${value.district}` : ''}</span>
-        </div>
-        {alternativeMatches.length > 0 ? (
-          <button type="button" className="text-button" onClick={() => setShowMatches((current) => !current)}>
-            {showMatches ? 'Скрыть варианты' : `Другие варианты (${alternativeMatches.length})`}
-          </button>
-        ) : null}
-      </div>
-
-      {value.source === 'manual-map' ? (
-        <p className="compact-note warning-note">Для ручного места климатические параметры не подставляются автоматически — проверьте их по ссылкам ниже.</p>
-      ) : null}
-
-      {showMatches && alternativeMatches.length > 0 ? (
-        <div className="matches compact-matches">
-          {alternativeMatches.map((match) => (
-            <button
-              key={match.id}
-              className="match"
-              type="button"
-              onClick={() => {
-                onSelect(match);
-                setQuery(`${match.name} ${match.region}`);
-                setShowMatches(false);
-              }}
-            >
+      <div className="matches">
+        {matches.length > 0 ? (
+          matches.map((match) => (
+            <button key={match.id} className="match" onClick={() => onSelect(match)} type="button">
               <strong>{match.name}</strong>
               <span>{match.region}{match.district ? `, ${match.district}` : ''}</span>
+              <small>локальная база, уверенность {Math.round(match.confidence * 100)}%</small>
             </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
+          ))
+        ) : (
+          <p className="muted">В локальной базе совпадений нет. Следующий этап — внешний геокодер или выбор точки на карте.</p>
+        )}
+      </div>
+    </section>
   );
 }

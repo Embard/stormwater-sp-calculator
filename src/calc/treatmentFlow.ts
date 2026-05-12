@@ -17,26 +17,9 @@ function processingCapacity(volumeM3: number, periodHours: number, settlingHours
   return volumeM3 / activeHours;
 }
 
-export function requiredMeltWorkingVolumeM3(args: {
-  dailyMeltVolumeM3: number;
-  meltProcessingHours: number;
-  consecutiveDays: number;
-}): { requiredVolumeM3: number; residualPerDayM3: number } {
-  const dailyVolume = Math.max(0, args.dailyMeltVolumeM3);
-  const periodHours = Math.max(0, args.meltProcessingHours);
-  const days = Math.max(1, Math.floor(args.consecutiveDays || 1));
-
-  if (dailyVolume <= 0 || periodHours <= 24 || days <= 1) {
-    return { requiredVolumeM3: dailyVolume, residualPerDayM3: 0 };
-  }
-
-  const residualPerDay = dailyVolume * (1 - 24 / periodHours);
-  const requiredVolume = dailyVolume + (days - 1) * residualPerDay;
-
-  return {
-    requiredVolumeM3: requiredVolume,
-    residualPerDayM3: residualPerDay
-  };
+function meltResidualPerDay(dailyMeltVolumeM3: number, meltProcessingHours: number): number {
+  if (meltProcessingHours <= 24) return 0;
+  return Math.max(0, dailyMeltVolumeM3 * (1 - 24 / meltProcessingHours));
 }
 
 export function calculateTreatment(args: {
@@ -63,6 +46,14 @@ export function calculateTreatment(args: {
     snowRemovalCoeffKy: args.snowRemovalCoeffKy
   });
 
+  const residual = meltResidualPerDay(meltDailyVolume, args.treatment.meltProcessingHours);
+  const consecutiveDays = Math.max(1, args.treatment.meltConsecutiveDays || 1);
+  const requiredMeltWorkingVolume = meltDailyVolume + (consecutiveDays - 1) * residual;
+  const requiredReservoirWorkingVolume = Math.max(rainVolume, requiredMeltWorkingVolume);
+  const reservoirControlCase = requiredMeltWorkingVolume > rainVolume ? 'melt' : 'rain';
+  const reserveFactor = 1 + args.treatment.reservoirReservePercent.value / 100;
+  const requiredReservoirFullVolume = requiredReservoirWorkingVolume * reserveFactor;
+
   const rainCapacity = processingCapacity(
     rainVolume,
     args.treatment.rainProcessingHours,
@@ -76,28 +67,18 @@ export function calculateTreatment(args: {
     args.treatment.technicalBreakHours
   );
 
-  const meltStorage = requiredMeltWorkingVolumeM3({
-    dailyMeltVolumeM3: meltDailyVolume,
-    meltProcessingHours: args.treatment.meltProcessingHours,
-    consecutiveDays: args.treatment.meltConsecutiveDays
-  });
-
-  const requiredWorkingVolume = Math.max(rainVolume, meltStorage.requiredVolumeM3);
-  const reserveFactor = 1 + args.treatment.reservoirReservePercent.value / 100;
-  const requiredReservoirFullVolume = requiredWorkingVolume * reserveFactor;
-
   return {
     rainTreatmentVolumeM3: rainVolume,
     dailyMeltVolumeM3: meltDailyVolume,
     rainTreatmentCapacityM3PerH: rainCapacity,
     meltTreatmentCapacityM3PerH: meltCapacity,
     selectedTreatmentCapacityM3PerH: Math.max(rainCapacity, meltCapacity),
-    meltResidualPerDayM3: meltStorage.residualPerDayM3,
-    requiredMeltWorkingVolumeM3: meltStorage.requiredVolumeM3,
-    requiredReservoirWorkingVolumeM3: requiredWorkingVolume,
-    reservoirControlCase: meltStorage.requiredVolumeM3 >= rainVolume ? 'melt' : 'rain',
+    meltResidualPerDayM3: residual,
+    requiredMeltWorkingVolumeM3: requiredMeltWorkingVolume,
+    requiredReservoirWorkingVolumeM3: requiredReservoirWorkingVolume,
+    reservoirControlCase,
     requiredReservoirFullVolumeM3: requiredReservoirFullVolume,
     reservoirIsEnoughForRain: args.treatment.reservoirWorkingVolumeM3 >= rainVolume,
-    reservoirIsEnoughForMelt: args.treatment.reservoirWorkingVolumeM3 >= meltStorage.requiredVolumeM3
+    reservoirIsEnoughForMelt: args.treatment.reservoirWorkingVolumeM3 >= requiredMeltWorkingVolume
   };
 }
