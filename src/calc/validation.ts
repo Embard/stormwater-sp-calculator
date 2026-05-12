@@ -9,71 +9,39 @@ function issue(id: string, severity: ValidationIssue['severity'], title: string,
 
 function validateNormativeValue(name: string, value: NormativeValue, field: string): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
+
   if (value.min !== undefined && value.value < value.min) {
     issues.push(
       issue(
         `${field}-below-min`,
         'error',
         `${name}: ниже нормативного диапазона`,
-        `Принято ${value.value} ${value.unit}, минимум ${value.min} ${value.unit}. Требуется исправить значение или указать обоснование ручного значения.`,
+        `Принято ${value.value} ${value.unit}, минимум ${value.min} ${value.unit}. Исправьте значение или подтвердите расчетным обоснованием вне калькулятора.`,
         field
       )
     );
   }
+
   if (value.max !== undefined && value.value > value.max) {
     issues.push(
       issue(
         `${field}-above-max`,
         'error',
         `${name}: выше нормативного диапазона`,
-        `Принято ${value.value} ${value.unit}, максимум ${value.max} ${value.unit}. Требуется исправить значение или указать обоснование ручного значения.`,
+        `Принято ${value.value} ${value.unit}, максимум ${value.max} ${value.unit}. Исправьте значение или подтвердите расчетным обоснованием вне калькулятора.`,
         field
       )
     );
   }
-  if (
-    value.basis === 'manual' &&
-    (value.justification === undefined || value.justification.trim().length < 5)
-  ) {
-    issues.push(
-      issue(
-        `${field}-manual-no-justification`,
-        'warning',
-        `${name}: ручное значение без обоснования`,
-        `Для ручного значения ${value.value} ${value.unit} нужно добавить основание принятия.`,
-        field
-      )
-    );
-  }
-  if (value.min !== undefined && value.value === value.min) {
-    issues.push(
-      issue(
-        `${field}-at-min`,
-        'info',
-        `${name}: принято нижнее значение диапазона`,
-        'Проверьте, что для выбранного минимального значения есть проектное обоснование.',
-        field
-      )
-    );
-  }
-  if (value.max !== undefined && value.value === value.max) {
-    issues.push(
-      issue(
-        `${field}-at-max`,
-        'info',
-        `${name}: принято верхнее значение диапазона`,
-        'Проверьте, что для выбранного максимального значения есть проектное обоснование.',
-        field
-      )
-    );
-  }
+
   return issues;
 }
 
 function collectSurfaceValues(surfaces: SurfaceItem[]): Array<[string, NormativeValue, string]> {
   return surfaces.flatMap((surface) => [
-    [`${surface.name}: коэффициент годового дождевого стока`, surface.annualRainCoeff, `surface-${surface.id}-annualRainCoeff`] as [string, NormativeValue, string],
-    [`${surface.name}: коэффициент расчетного дождя`, surface.designRainCoeff, `surface-${surface.id}-designRainCoeff`] as [string, NormativeValue, string]
+    [`${surface.name}: ψд для годового объема Wд`, surface.annualRainCoeff, `surface-${surface.id}-annualRainCoeff`] as [string, NormativeValue, string],
+    [`${surface.name}: Zi для расчетного расхода Qr`, surface.coverCoeff, `surface-${surface.id}-coverCoeff`] as [string, NormativeValue, string],
+    [`${surface.name}: Ψi для объема дождя на очистку`, surface.designRainCoeff, `surface-${surface.id}-designRainCoeff`] as [string, NormativeValue, string]
   ]);
 }
 
@@ -86,8 +54,8 @@ export function validateProject(input: ProjectInput): ValidationIssue[] {
       issue(
         'surface-area-mismatch',
         'error',
-        'Сумма площадей покрытий не совпадает с расчетной площадью',
-        `Сумма покрытий ${surfaceArea.toFixed(4)} га, расчетная площадь ${input.totalAreaHa.toFixed(4)} га. Коэффициент стока нельзя применять к другой площади.`,
+        'Сумма площадей покрытий не совпадает с общей площадью',
+        `Сумма покрытий ${surfaceArea.toFixed(4)} га, общая площадь ${input.totalAreaHa.toFixed(4)} га. Проверьте площади перед расчетом.`,
         'surfaces'
       )
     );
@@ -105,7 +73,7 @@ export function validateProject(input: ProjectInput): ValidationIssue[] {
     );
   }
 
-  const hardArea = input.surfaces.filter((x) => x.isHardSurface).reduce((sum, s) => sum + s.areaHa, 0);
+  const hardArea = input.surfaces.filter((x) => x.isHardSurface).reduce((sum, surface) => sum + surface.areaHa, 0);
   if (input.washingAreaHa > hardArea + AREA_EPS) {
     issues.push(
       issue(
@@ -118,26 +86,14 @@ export function validateProject(input: ProjectInput): ValidationIssue[] {
     );
   }
 
-  if (Math.abs(input.treatment.rainTreatmentCoeffScopeAreaHa - input.treatment.rainTreatmentAreaHa) > AREA_EPS) {
+  if (input.treatment.rainTreatmentAreaHa <= 0) {
     issues.push(
       issue(
-        'rain-treatment-coeff-area-scope',
-        'warning',
-        'Коэффициент стока применен не к той площади',
-        `Коэффициент ψ = ${input.treatment.rainTreatmentCoeff.value.toFixed(4)} рассчитан для площади ${input.treatment.rainTreatmentCoeffScopeAreaHa.toFixed(4)} га, но применен к площади ${input.treatment.rainTreatmentAreaHa.toFixed(4)} га. Пересчитайте коэффициент для территории, направляемой на очистку.`,
-        'treatment.rainTreatmentCoeff'
-      )
-    );
-  }
-
-  if (input.meltUnevennessCoeff.value === 1 && !input.meltUnevennessCoeff.justification) {
-    issues.push(
-      issue(
-        'melt-unevenness-one-no-justification',
-        'warning',
-        'Коэффициент неравномерности снеготаяния принят 1,0',
-        'По умолчанию применяется 0,8. Для значения 1,0 нужно добавить ручное обоснование.',
-        'meltUnevennessCoeff'
+        'rain-treatment-area-zero',
+        'error',
+        'Не задана площадь дождевого стока на очистку',
+        'Отметьте хотя бы одно покрытие галочкой «На очистку» или проверьте площади покрытий.',
+        'treatment.rainTreatmentAreaHa'
       )
     );
   }
@@ -148,23 +104,36 @@ export function validateProject(input: ProjectInput): ValidationIssue[] {
         'pipe-velocity-zero',
         'error',
         'Не задана скорость в коллекторе',
-        'Время протекания tp должно быть связано с длиной и скоростью. Скорость должна быть больше нуля.',
+        'Скорость должна быть больше нуля, иначе нельзя определить время протекания по трубе.',
         'rainFlow.pipeVelocityMS'
       )
     );
   }
 
-  if (input.treatment.meltProcessingHours === 48) {
+  if (input.treatment.rainProcessingHours <= input.treatment.settlingHours + input.treatment.technicalBreakHours) {
     issues.push(
       issue(
-        'melt-processing-48-hours',
-        'warning',
-        'Период переработки талого стока принят 48 ч',
-        'Такое значение допускается принимать только при расчетном подтверждении рабочего объема резервуара.',
+        'rain-processing-hours-invalid',
+        'error',
+        'Недостаточный период переработки дождевого стока',
+        'Период переработки дождя должен быть больше суммы отстаивания и технологических перерывов.',
+        'treatment.rainProcessingHours'
+      )
+    );
+  }
+
+  if (input.treatment.meltProcessingHours <= input.treatment.settlingHours + input.treatment.technicalBreakHours) {
+    issues.push(
+      issue(
+        'melt-processing-hours-invalid',
+        'error',
+        'Недостаточный период переработки талого стока',
+        'Период переработки талого стока должен быть больше суммы отстаивания и технологических перерывов.',
         'treatment.meltProcessingHours'
       )
     );
   }
+
 
   const normativeChecks: Array<[string, NormativeValue, string]> = [
     ['Осадки теплого периода', input.climate.hdWarmPeriodMm, 'climate.hdWarmPeriodMm'],
@@ -180,8 +149,8 @@ export function validateProject(input: ProjectInput): ValidationIssue[] {
     ['Коэффициент поливомоечного стока', input.washingRunoffCoeff, 'washingRunoffCoeff'],
     ['Коэффициент неравномерности снеготаяния', input.meltUnevennessCoeff, 'meltUnevennessCoeff'],
     ['Период однократного превышения расчетной интенсивности P', input.rainFlow.p, 'rainFlow.p'],
-    ['Коэффициент Zmid', input.rainFlow.zMid, 'rainFlow.zMid'],
-    ['Доля загрязненного дождевого объема', input.treatment.pollutedRainFraction, 'treatment.pollutedRainFraction'],
+    ['Zmid', input.rainFlow.zMid, 'rainFlow.zMid'],
+    ['Доля объема на очистку', input.treatment.pollutedRainFraction, 'treatment.pollutedRainFraction'],
     ['Запас резервуара', input.treatment.reservoirReservePercent, 'treatment.reservoirReservePercent'],
     ...collectSurfaceValues(input.surfaces)
   ];

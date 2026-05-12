@@ -5,21 +5,23 @@ type Props = {
 };
 
 export function ValidationPanel({ issues }: Props) {
-  const errors = issues.filter((x) => x.severity === 'error').length;
-  const warnings = issues.filter((x) => x.severity === 'warning').length;
+  const visibleIssues = issues.filter((item) => item.severity !== 'info');
+  const errors = visibleIssues.filter((item) => item.severity === 'error').length;
+  const warnings = visibleIssues.filter((item) => item.severity === 'warning').length;
 
   return (
     <section className="card validation-card">
       <h2>Проверки методики</h2>
       <p className="summary">
-        Ошибки: <strong>{errors}</strong>. Предупреждения: <strong>{warnings}</strong>. Информационные сообщения: <strong>{issues.length - errors - warnings}</strong>.
+        Ошибки: <strong>{errors}</strong>. Предупреждения: <strong>{warnings}</strong>.
       </p>
       <div className="issues">
-        {issues.length === 0 ? (
+        {visibleIssues.length === 0 ? (
           <p className="ok">Критических методических замечаний не найдено.</p>
         ) : (
-          issues.map((item) => (
+          visibleIssues.map((item) => (
             <article key={item.id} className={`issue ${item.severity}`}>
+              <span className="issue-type">{item.severity === 'error' ? 'Ошибка' : 'Предупреждение'}</span>
               <strong>{item.title}</strong>
               <p>{item.message}</p>
             </article>
