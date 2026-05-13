@@ -227,6 +227,7 @@ function replaceKnownPlainPlaceholders(xml: string, values: Record<string, strin
     'meltUnevennessCoeff',
     'annualRainVolume',
     'annualMeltVolume',
+    'lawnAreaHa',
     'annualTotalVolume',
     'washingRate',
     'washingCoeff',

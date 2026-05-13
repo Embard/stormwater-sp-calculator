@@ -653,3 +653,35 @@ input[type="checkbox"] {
     grid-template-columns: 1fr;
   }
 }
+
+/* fix25: only prevent right panel overlap; no UI redesign */
+@media (min-width: 1501px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+
+  .left-column,
+  .section-card,
+  .surface-grid-table {
+    min-width: 0;
+  }
+
+  .surface-grid-table {
+    grid-template-columns:
+      minmax(180px, 1.45fr)
+      minmax(80px, 0.62fr)
+      minmax(120px, 0.9fr)
+      minmax(120px, 0.9fr)
+      minmax(120px, 0.9fr)
+      48px
+      66px
+      66px
+      34px;
+    gap: 8px;
+  }
+
+  .surface-grid-header {
+    font-size: 11px;
+    line-height: 1.15;
+  }
+}
