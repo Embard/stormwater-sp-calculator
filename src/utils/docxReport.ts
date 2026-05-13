@@ -92,6 +92,16 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
   const beta = 0.75;
   const qcalForReport = qrForReport * beta;
 
+  const rainActiveProcessingHours = Math.max(0, input.treatment.rainProcessingHours - input.treatment.settlingHours - input.treatment.technicalBreakHours);
+  const meltActiveProcessingHours = Math.max(0, input.treatment.meltProcessingHours - input.treatment.settlingHours - input.treatment.technicalBreakHours);
+  const rainTreatmentCapacityForReport = rainActiveProcessingHours > 0
+    ? results.treatment.rainTreatmentVolumeM3 / rainActiveProcessingHours
+    : Number.POSITIVE_INFINITY;
+  const meltTreatmentCapacityForReport = meltActiveProcessingHours > 0
+    ? results.treatment.dailyMeltVolumeM3 / meltActiveProcessingHours
+    : Number.POSITIVE_INFINITY;
+  const selectedTreatmentCapacityForReport = Math.max(rainTreatmentCapacityForReport, meltTreatmentCapacityForReport);
+
   return {
     objectName: input.objectName,
 
@@ -170,8 +180,8 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
     meltConsecutiveDays: formatTrim(input.treatment.meltConsecutiveDays, 0),
     settlingHours: formatTrim(input.treatment.settlingHours, 0),
     technicalBreakHours: formatTrim(input.treatment.technicalBreakHours, 0),
-    rainActiveProcessingHours: formatTrim(Math.max(0, input.treatment.rainProcessingHours - input.treatment.settlingHours - input.treatment.technicalBreakHours), 0),
-    meltActiveProcessingHours: formatTrim(Math.max(0, input.treatment.meltProcessingHours - input.treatment.settlingHours - input.treatment.technicalBreakHours), 0),
+    rainActiveProcessingHours: formatTrim(rainActiveProcessingHours, 0),
+    meltActiveProcessingHours: formatTrim(meltActiveProcessingHours, 0),
     meltResidualPerDay: formatNumber(results.treatment.meltResidualPerDayM3, 2),
     requiredMeltWorkingVolume: formatNumber(results.treatment.requiredMeltWorkingVolumeM3, 2),
     requiredReservoirWorkingVolume: formatNumber(results.treatment.requiredReservoirWorkingVolumeM3, 2),
@@ -180,9 +190,9 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
     requiredReservoirFullVolume: formatNumber(results.treatment.requiredReservoirFullVolumeM3, 2),
     reservoirWorkingVolume: formatNumber(input.treatment.reservoirWorkingVolumeM3, 2),
     reservoirCheckResult: input.treatment.reservoirWorkingVolumeM3 >= results.treatment.requiredReservoirWorkingVolumeM3 ? 'выполняется' : 'не выполняется',
-    rainTreatmentCapacity: formatNumber(results.treatment.rainTreatmentCapacityM3PerH, 2),
-    meltTreatmentCapacity: formatNumber(results.treatment.meltTreatmentCapacityM3PerH, 2),
-    selectedTreatmentCapacity: formatNumber(results.treatment.selectedTreatmentCapacityM3PerH, 2)
+    rainTreatmentCapacity: formatNumber(rainTreatmentCapacityForReport, 2),
+    meltTreatmentCapacity: formatNumber(meltTreatmentCapacityForReport, 2),
+    selectedTreatmentCapacity: formatNumber(selectedTreatmentCapacityForReport, 2)
   };
 }
 
