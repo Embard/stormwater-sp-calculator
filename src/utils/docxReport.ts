@@ -220,14 +220,14 @@ function replaceKnownPlainPlaceholders(xml: string, values: Record<string, strin
   // Короткие обозначения формул q20, n, p, tr, Qr и т.п. здесь намеренно не трогаются:
   // они должны оставаться буквенными символами формулы, если не являются Content Control.
   const allowedKeys = [
+    // Длинные/технические маркеры. Их можно безопасно заменить даже если в шаблоне
+    // они случайно остались обычным текстом, а не Content Control.
     'psiAnnualExpression',
     'zmidExpression',
     'psimidExpression',
-    'psiMeltDaily',
     'meltUnevennessCoeff',
     'annualRainVolume',
     'annualMeltVolume',
-    'lawnAreaHa',
     'annualTotalVolume',
     'washingRate',
     'washingCoeff',
@@ -239,7 +239,6 @@ function replaceKnownPlainPlaceholders(xml: string, values: Record<string, strin
     'dailyRainVolume',
     'dailyMeltVolume',
     'snowCleanedAreaHa',
-    'totalAreaHa',
     'meltResidualPerDay',
     'meltConsecutiveDays',
     'requiredMeltWorkingVolume',
@@ -256,10 +255,34 @@ function replaceKnownPlainPlaceholders(xml: string, values: Record<string, strin
     'rainTreatmentCapacity',
     'meltTreatmentCapacity',
     'selectedTreatmentCapacity',
+    'roofAreaM2',
+    'roofFlow',
+    'hardAreaHa',
+    'lawnAreaHa',
+    'totalAreaHa',
+    'psiAnnual',
+    'psiMeltDaily',
+    'psiMelt',
+    'zCoverHard',
+    'zCoverLawn',
+    'psiDesignHard',
+    'psiDesignLawn',
+    'parameterA',
+    'rainFlowAreaHa',
+    'flowExponent',
+    'engineerName',
+    'reportDate',
+    'objectName',
+    'psimid',
+    'zmid',
+    'qcal',
+    'beta',
+    'qr',
     'ky',
     'hc',
     'ht',
-    'hd'
+    'hd',
+    'tp'
   ].filter((key) => values[key] !== undefined).sort((a, b) => b.length - a.length);
 
   return xml.replace(/<w:t(\s[^>]*)?>([^<]*)<\/w:t>/g, (node, attrs = '', text = '') => {
@@ -268,6 +291,33 @@ function replaceKnownPlainPlaceholders(xml: string, values: Record<string, strin
       if (!nextText.includes(key)) continue;
       nextText = nextText.split(key).join(escapeXml(values[key]));
     }
+
+    // q5 короткий маркер и может быть буквенным обозначением формулы.
+    // Поэтому не заменяем все q5 подряд.
+    // Нужно заменить только q5 в числовой подстановке:
+    //   Q = F×q5/10000 = 13 496× q5/10000 = ...
+    // и итог в строке:
+    //   q5 = 4^n × q20 = ... = q5 л/с
+    if (values.q5) {
+      const q5Value = escapeXml(values.q5);
+
+      // Если вся строка оказалась в одном w:t, меняем только q5 после числовой площади,
+      // а буквенное F×q5/10000 оставляем как формулу.
+      nextText = nextText.replace(
+        /(Q\s*=\s*F\s*×\s*q5\s*\/\s*10000\s*=\s*[^=]*?×\s*)q5(?=\s*\/\s*10000)/g,
+        `$1${q5Value}`
+      );
+
+      // Если после Content Control с roofAreaM2 остался отдельный текстовый фрагмент "× q5/10000".
+      // Не трогаем фрагмент, где есть буквенная часть "Q = F×q5/10000".
+      if (!/Q\s*=\s*F\s*×\s*q5\s*\/\s*10000/.test(nextText)) {
+        nextText = nextText.replace(/(×\s*)q5(\s*\/\s*10000)/g, `$1${q5Value}$2`);
+      }
+
+      // Итоговое значение q5 в строке расчета q5.
+      nextText = nextText.replace(/(=\s*)q5(?=\s*л\/с)/g, `$1${q5Value}`);
+    }
+
     return `<w:t${attrs || ''}>${nextText}</w:t>`;
   });
 }
