@@ -31,6 +31,14 @@ function round(value: number, digits: number): number {
   return Math.round((value + Number.EPSILON) * factor) / factor;
 }
 
+function roundVolumeForSite(value: number, annual = false): number {
+  return annual ? Math.round(value) : round(value, 1);
+}
+
+function roundFlowForSite(value: number): number {
+  return value > 10 ? round(value, 1) : round(value, 2);
+}
+
 function sumArea(surfaces: SurfaceItem[], predicate: (surface: SurfaceItem) => boolean): number {
   return surfaces.filter(predicate).reduce((sum, surface) => sum + surface.areaHa, 0);
 }
@@ -78,19 +86,14 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
   const roofFlow = (roofAreaM2 * q5) / 10000;
   const flowExponentRaw = 1.2 * n - 0.1;
 
-  // Для отчета результат Qr считаем по тем же округленным значениям, которые видны в подстановке.
-  // Иначе получается визуальное несоответствие: в строке подстановки стоят округленные числа,
-  // а итог Qr берется из точных внутренних значений калькулятора.
   const zmidForReport = round(input.rainFlow.zMid.value, 3);
   const parameterAForReport = round(results.rainFlow.parameterA, 2);
   const rainFlowAreaForReport = round(input.rainFlow.areaHa || treatmentAreaHa, 4);
-  const trForReport = round(results.rainFlow.trMin, 1);
-  const flowExponentForReport = round(flowExponentRaw, 2);
-  const qrForReport = trForReport > 0
-    ? (zmidForReport * Math.pow(parameterAForReport, 1.2) * rainFlowAreaForReport) / Math.pow(trForReport, flowExponentForReport)
-    : 0;
+  const trForReport = round(results.rainFlow.trMin, 2);
+  const flowExponentForReport = round(flowExponentRaw, 3);
+  const qrForReport = roundFlowForSite(results.rainFlow.qrLS);
   const beta = 0.75;
-  const qcalForReport = qrForReport * beta;
+  const qcalForReport = round(qrForReport * beta, 2);
 
   const totalAreaReport = round(input.totalAreaHa, 4);
   const treatmentAreaReport = round(treatmentAreaHa, 4);
@@ -100,37 +103,36 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
   const meltUnevennessReport = round(input.meltUnevennessCoeff.value, 4);
   const hdReport = round(input.climate.hdWarmPeriodMm.value, 0);
   const htReport = round(input.climate.htColdPeriodMm.value, 0);
-  const hcReport = round(input.climate.hcMeltTenHourMm.value, 0);
-  const haReport = round(input.climate.haRainTreatmentMm.value, 0);
-  const annualRainVolumeReport = 10 * hdReport * psiAnnualReport * totalAreaReport;
-  const annualMeltVolumeReport = 10 * htReport * psiMeltReport * kyReport * totalAreaReport;
+  // ha и hc нельзя округлять до целых: сайт и расчет используют дробные значения 7,25 / 18,16.
+  const hcReport = round(input.climate.hcMeltTenHourMm.value, 2);
+  const haReport = round(input.climate.haRainTreatmentMm.value, 2);
+
+  // Итоговые значения в отчете должны совпадать с карточками сайта.
+  // Поэтому финальные объемы берем из общего расчетного результата, а не пересчитываем заново
+  // из уже округленных коэффициентов в строке отчета.
+  const annualRainVolumeReport = results.annual.annualRainVolumeM3;
+  const annualMeltVolumeReport = results.annual.annualMeltVolumeM3;
   const washingRateReport = round(input.washingRateLPerM2.value, 4);
   const washingCoeffReport = round(input.washingRunoffCoeff.value, 4);
   const washingAreaReport = round(input.washingAreaHa, 4);
   const washingCountReport = round(input.washingCountPerYear, 0);
-  const washingVolumeReport = 10 * washingRateReport * washingCoeffReport * washingAreaReport * washingCountReport;
-  const annualTotalVolumeReport = annualRainVolumeReport + annualMeltVolumeReport + washingVolumeReport;
+  const washingVolumeReport = results.annual.washingVolumeM3;
+  const annualTotalVolumeReport = results.annual.totalAnnualVolumeM3;
   const psimidReport = round(input.treatment.rainTreatmentCoeff.value, 3);
-  const dailyRainVolumeReport = 10 * haReport * treatmentAreaReport * psimidReport * round(input.treatment.pollutedRainFraction.value, 4);
-  const dailyMeltVolumeReport = 10 * hcReport * totalAreaReport * meltUnevennessReport * psiMeltReport * kyReport;
+  const dailyRainVolumeReport = results.treatment.rainTreatmentVolumeM3;
+  const dailyMeltVolumeReport = results.treatment.dailyMeltVolumeM3;
 
   const rainActiveProcessingHours = Math.max(0, input.treatment.rainProcessingHours - input.treatment.settlingHours - input.treatment.technicalBreakHours);
   const meltActiveProcessingHours = Math.max(0, input.treatment.meltProcessingHours - input.treatment.settlingHours - input.treatment.technicalBreakHours);
-  const rainTreatmentCapacityForReport = rainActiveProcessingHours > 0
-    ? dailyRainVolumeReport / rainActiveProcessingHours
-    : Number.POSITIVE_INFINITY;
-  const meltTreatmentCapacityForReport = meltActiveProcessingHours > 0
-    ? dailyMeltVolumeReport / meltActiveProcessingHours
-    : Number.POSITIVE_INFINITY;
-  const selectedTreatmentCapacityForReport = Math.max(rainTreatmentCapacityForReport, meltTreatmentCapacityForReport);
+  const rainTreatmentCapacityForReport = results.treatment.rainTreatmentCapacityM3PerH;
+  const meltTreatmentCapacityForReport = results.treatment.meltTreatmentCapacityM3PerH;
+  const selectedTreatmentCapacityForReport = results.treatment.selectedTreatmentCapacityM3PerH;
 
-  const meltResidualReport = input.treatment.meltProcessingHours > 24
-    ? Math.max(0, dailyMeltVolumeReport * (1 - 24 / input.treatment.meltProcessingHours))
-    : 0;
+  const meltResidualReport = results.treatment.meltResidualPerDayM3;
   const meltConsecutiveDaysReport = Math.max(1, input.treatment.meltConsecutiveDays || 1);
-  const requiredMeltWorkingVolumeReport = dailyMeltVolumeReport + (meltConsecutiveDaysReport - 1) * meltResidualReport;
-  const requiredReservoirWorkingVolumeReport = Math.max(dailyRainVolumeReport, requiredMeltWorkingVolumeReport);
-  const requiredReservoirFullVolumeReport = requiredReservoirWorkingVolumeReport * (1 + input.treatment.reservoirReservePercent.value / 100);
+  const requiredMeltWorkingVolumeReport = results.treatment.requiredMeltWorkingVolumeM3;
+  const requiredReservoirWorkingVolumeReport = results.treatment.requiredReservoirWorkingVolumeM3;
+  const requiredReservoirFullVolumeReport = results.treatment.requiredReservoirFullVolumeM3;
 
   return {
     objectName: input.objectName,
@@ -150,8 +152,8 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
 
     hd: formatTrim(hdReport, 0),
     ht: formatTrim(htReport, 0),
-    hc: formatTrim(hcReport, 0),
-    haRainTreatment: formatTrim(haReport, 0),
+    hc: formatTrim(hcReport, 2),
+    haRainTreatment: formatTrim(haReport, 2),
 
     psiAnnual: formatTrim(round(results.annual.weightedAnnualRainCoeff, 4), 4),
     psiAnnualExpression: weightedNumeratorExpression(input.surfaces, 'annualRainCoeff', (surface) => surface.areaHa > 0),
@@ -162,14 +164,14 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
     ky: formatTrim(kyReport, 4),
     meltUnevennessCoeff: formatTrim(meltUnevennessReport, 4),
 
-    annualRainVolume: formatNumber(annualRainVolumeReport, 2),
-    annualMeltVolume: formatNumber(annualMeltVolumeReport, 2),
+    annualRainVolume: formatNumber(roundVolumeForSite(annualRainVolumeReport, true), 0),
+    annualMeltVolume: formatNumber(roundVolumeForSite(annualMeltVolumeReport, true), 0),
     washingRate: formatTrim(washingRateReport, 2),
     washingCoeff: formatTrim(washingCoeffReport, 3),
     washingAreaHa: formatTrim(washingAreaReport, 4),
     washingCount: formatTrim(washingCountReport, 0),
-    washingVolume: formatNumber(washingVolumeReport, 2),
-    annualTotalVolume: formatNumber(annualTotalVolumeReport, 2),
+    washingVolume: formatNumber(roundVolumeForSite(washingVolumeReport, true), 0),
+    annualTotalVolume: formatNumber(roundVolumeForSite(annualTotalVolumeReport, true), 0),
 
     rainTreatmentAreaHa: formatTrim(treatmentAreaReport, 4),
     treatmentHardAreaHa: formatTrim(treatmentHardAreaHa, 4),
@@ -182,19 +184,19 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
     psiDesignLawn: formatTrim(weightedValue(input.surfaces, 'designRainCoeff', treatmentLawnPredicate), 4),
     psimidExpression: weightedNumeratorExpression(input.surfaces, 'designRainCoeff', (surface) => surface.routedToTreatment && surface.areaHa > 0),
     psimid: formatNumber(psimidReport, 3),
-    dailyRainVolume: formatNumber(dailyRainVolumeReport, 2),
+    dailyRainVolume: formatNumber(roundVolumeForSite(dailyRainVolumeReport), 1),
 
-    dailyMeltVolume: formatNumber(dailyMeltVolumeReport, 3),
+    dailyMeltVolume: formatNumber(roundVolumeForSite(dailyMeltVolumeReport), 1),
     snowCleanedAreaHa: formatTrim(input.snowCleanedAreaHa, 4),
 
     parameterA: formatNumber(parameterAForReport, 2),
     rainFlowAreaHa: formatTrim(rainFlowAreaForReport, 4),
-    tr: formatNumber(trForReport, 1),
-    tp: formatNumber(results.rainFlow.tpMin, 1),
+    tr: formatNumber(trForReport, 2),
+    tp: formatNumber(results.rainFlow.tpMin, 2),
     tcon: formatTrim(input.rainFlow.tConMin.value, 1),
     tcan: formatTrim(input.rainFlow.tCanMin.value, 1),
-    flowExponent: formatNumber(flowExponentForReport, 2),
-    qr: formatNumber(qrForReport, 2),
+    flowExponent: formatNumber(flowExponentForReport, 3),
+    qr: formatNumber(qrForReport, qrForReport > 10 ? 1 : 2),
     p: formatTrim(input.rainFlow.p.value, 2),
     gamma: formatTrim(input.rainFlow.gamma.value, 2),
     mr: formatTrim(input.rainFlow.mr.value, 0),
@@ -212,12 +214,12 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
     technicalBreakHours: formatTrim(input.treatment.technicalBreakHours, 0),
     rainActiveProcessingHours: formatTrim(rainActiveProcessingHours, 0),
     meltActiveProcessingHours: formatTrim(meltActiveProcessingHours, 0),
-    meltResidualPerDay: formatNumber(meltResidualReport, 2),
-    requiredMeltWorkingVolume: formatNumber(requiredMeltWorkingVolumeReport, 2),
-    requiredReservoirWorkingVolume: formatNumber(requiredReservoirWorkingVolumeReport, 2),
+    meltResidualPerDay: formatNumber(roundVolumeForSite(meltResidualReport), 1),
+    requiredMeltWorkingVolume: formatNumber(roundVolumeForSite(requiredMeltWorkingVolumeReport), 1),
+    requiredReservoirWorkingVolume: formatNumber(roundVolumeForSite(requiredReservoirWorkingVolumeReport), 1),
     requiredReservoirControlCase: requiredMeltWorkingVolumeReport > dailyRainVolumeReport ? 'талому стоку' : 'дождевому стоку',
     reservoirReservePercent: formatTrim(input.treatment.reservoirReservePercent.value, 2),
-    requiredReservoirFullVolume: formatNumber(requiredReservoirFullVolumeReport, 2),
+    requiredReservoirFullVolume: formatNumber(roundVolumeForSite(requiredReservoirFullVolumeReport), 1),
     reservoirWorkingVolume: formatNumber(input.treatment.reservoirWorkingVolumeM3, 2),
     reservoirCheckResult: input.treatment.reservoirWorkingVolumeM3 >= requiredReservoirWorkingVolumeReport ? 'выполняется' : 'не выполняется',
     rainTreatmentCapacity: formatNumber(rainTreatmentCapacityForReport, 2),
