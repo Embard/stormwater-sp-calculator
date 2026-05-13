@@ -92,15 +92,46 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
   const beta = 0.75;
   const qcalForReport = qrForReport * beta;
 
+  const totalAreaReport = round(input.totalAreaHa, 4);
+  const treatmentAreaReport = round(treatmentAreaHa, 4);
+  const kyReport = round(results.annual.snowRemovalCoeffKy, 4);
+  const psiAnnualReport = round(results.annual.weightedAnnualRainCoeff, 4);
+  const psiMeltAnnualReport = round(input.snowMeltCoeff.value, 4);
+  const psiMeltDailyReport = round(input.dailyMeltRunoffCoeff.value, 4);
+  const meltUnevennessReport = round(input.meltUnevennessCoeff.value, 4);
+  const hdReport = round(input.climate.hdWarmPeriodMm.value, 0);
+  const htReport = round(input.climate.htColdPeriodMm.value, 0);
+  const hcReport = round(input.climate.hcMeltTenHourMm.value, 0);
+  const haReport = round(input.climate.haRainTreatmentMm.value, 0);
+  const annualRainVolumeReport = 10 * hdReport * psiAnnualReport * totalAreaReport;
+  const annualMeltVolumeReport = 10 * htReport * psiMeltAnnualReport * kyReport * totalAreaReport;
+  const washingRateReport = round(input.washingRateLPerM2.value, 4);
+  const washingCoeffReport = round(input.washingRunoffCoeff.value, 4);
+  const washingAreaReport = round(input.washingAreaHa, 4);
+  const washingCountReport = round(input.washingCountPerYear, 0);
+  const washingVolumeReport = 10 * washingRateReport * washingCoeffReport * washingAreaReport * washingCountReport;
+  const annualTotalVolumeReport = annualRainVolumeReport + annualMeltVolumeReport + washingVolumeReport;
+  const psimidReport = round(input.treatment.rainTreatmentCoeff.value, 3);
+  const dailyRainVolumeReport = 10 * haReport * treatmentAreaReport * psimidReport * round(input.treatment.pollutedRainFraction.value, 4);
+  const dailyMeltVolumeReport = 10 * hcReport * totalAreaReport * meltUnevennessReport * psiMeltDailyReport * kyReport;
+
   const rainActiveProcessingHours = Math.max(0, input.treatment.rainProcessingHours - input.treatment.settlingHours - input.treatment.technicalBreakHours);
   const meltActiveProcessingHours = Math.max(0, input.treatment.meltProcessingHours - input.treatment.settlingHours - input.treatment.technicalBreakHours);
   const rainTreatmentCapacityForReport = rainActiveProcessingHours > 0
-    ? results.treatment.rainTreatmentVolumeM3 / rainActiveProcessingHours
+    ? dailyRainVolumeReport / rainActiveProcessingHours
     : Number.POSITIVE_INFINITY;
   const meltTreatmentCapacityForReport = meltActiveProcessingHours > 0
-    ? results.treatment.dailyMeltVolumeM3 / meltActiveProcessingHours
+    ? dailyMeltVolumeReport / meltActiveProcessingHours
     : Number.POSITIVE_INFINITY;
   const selectedTreatmentCapacityForReport = Math.max(rainTreatmentCapacityForReport, meltTreatmentCapacityForReport);
+
+  const meltResidualReport = input.treatment.meltProcessingHours > 24
+    ? Math.max(0, dailyMeltVolumeReport * (1 - 24 / input.treatment.meltProcessingHours))
+    : 0;
+  const meltConsecutiveDaysReport = Math.max(1, input.treatment.meltConsecutiveDays || 1);
+  const requiredMeltWorkingVolumeReport = dailyMeltVolumeReport + (meltConsecutiveDaysReport - 1) * meltResidualReport;
+  const requiredReservoirWorkingVolumeReport = Math.max(dailyRainVolumeReport, requiredMeltWorkingVolumeReport);
+  const requiredReservoirFullVolumeReport = requiredReservoirWorkingVolumeReport * (1 + input.treatment.reservoirReservePercent.value / 100);
 
   return {
     objectName: input.objectName,
@@ -116,32 +147,32 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
 
     hardAreaHa: formatTrim(hardAreaHa, 4),
     lawnAreaHa: formatTrim(lawnAreaHa, 4),
-    totalAreaHa: formatTrim(input.totalAreaHa, 4),
+    totalAreaHa: formatTrim(totalAreaReport, 4),
 
-    hd: formatTrim(input.climate.hdWarmPeriodMm.value, 0),
-    ht: formatTrim(input.climate.htColdPeriodMm.value, 0),
-    hc: formatTrim(input.climate.hcMeltTenHourMm.value, 0),
-    haRainTreatment: formatTrim(input.climate.haRainTreatmentMm.value, 0),
+    hd: formatTrim(hdReport, 0),
+    ht: formatTrim(htReport, 0),
+    hc: formatTrim(hcReport, 0),
+    haRainTreatment: formatTrim(haReport, 0),
 
-    psiAnnual: formatNumber(results.annual.weightedAnnualRainCoeff, 2),
+    psiAnnual: formatTrim(round(results.annual.weightedAnnualRainCoeff, 4), 4),
     psiAnnualExpression: weightedNumeratorExpression(input.surfaces, 'annualRainCoeff', (surface) => surface.areaHa > 0),
     psiAnnualHard: formatTrim(weightedValue(input.surfaces, 'annualRainCoeff', hardPredicate), 4),
     psiAnnualLawn: formatTrim(weightedValue(input.surfaces, 'annualRainCoeff', lawnPredicate), 4),
-    psiMelt: formatTrim(input.snowMeltCoeff.value, 3),
-    psiMeltDaily: formatTrim(input.dailyMeltRunoffCoeff.value, 3),
-    ky: formatNumber(results.annual.snowRemovalCoeffKy, 4),
-    meltUnevennessCoeff: formatTrim(input.meltUnevennessCoeff.value, 3),
+    psiMelt: formatTrim(psiMeltAnnualReport, 4),
+    psiMeltDaily: formatTrim(psiMeltDailyReport, 4),
+    ky: formatTrim(kyReport, 4),
+    meltUnevennessCoeff: formatTrim(meltUnevennessReport, 4),
 
-    annualRainVolume: formatNumber(results.annual.annualRainVolumeM3, 2),
-    annualMeltVolume: formatNumber(results.annual.annualMeltVolumeM3, 2),
-    washingRate: formatTrim(input.washingRateLPerM2.value, 2),
-    washingCoeff: formatTrim(input.washingRunoffCoeff.value, 3),
-    washingAreaHa: formatTrim(input.washingAreaHa, 4),
-    washingCount: formatTrim(input.washingCountPerYear, 0),
-    washingVolume: formatNumber(results.annual.washingVolumeM3, 2),
-    annualTotalVolume: formatNumber(results.annual.totalAnnualVolumeM3, 2),
+    annualRainVolume: formatNumber(annualRainVolumeReport, 2),
+    annualMeltVolume: formatNumber(annualMeltVolumeReport, 2),
+    washingRate: formatTrim(washingRateReport, 2),
+    washingCoeff: formatTrim(washingCoeffReport, 3),
+    washingAreaHa: formatTrim(washingAreaReport, 4),
+    washingCount: formatTrim(washingCountReport, 0),
+    washingVolume: formatNumber(washingVolumeReport, 2),
+    annualTotalVolume: formatNumber(annualTotalVolumeReport, 2),
 
-    rainTreatmentAreaHa: formatTrim(treatmentAreaHa, 4),
+    rainTreatmentAreaHa: formatTrim(treatmentAreaReport, 4),
     treatmentHardAreaHa: formatTrim(treatmentHardAreaHa, 4),
     treatmentLawnAreaHa: formatTrim(treatmentLawnAreaHa, 4),
     zCoverHard: formatTrim(weightedValue(input.surfaces, 'coverCoeff', treatmentHardPredicate), 4),
@@ -151,10 +182,10 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
     psiDesignHard: formatTrim(weightedValue(input.surfaces, 'designRainCoeff', treatmentHardPredicate), 4),
     psiDesignLawn: formatTrim(weightedValue(input.surfaces, 'designRainCoeff', treatmentLawnPredicate), 4),
     psimidExpression: weightedNumeratorExpression(input.surfaces, 'designRainCoeff', (surface) => surface.routedToTreatment && surface.areaHa > 0),
-    psimid: formatNumber(input.treatment.rainTreatmentCoeff.value, 3),
-    dailyRainVolume: formatNumber(results.treatment.rainTreatmentVolumeM3, 2),
+    psimid: formatNumber(psimidReport, 3),
+    dailyRainVolume: formatNumber(dailyRainVolumeReport, 2),
 
-    dailyMeltVolume: formatNumber(results.treatment.dailyMeltVolumeM3, 3),
+    dailyMeltVolume: formatNumber(dailyMeltVolumeReport, 3),
     snowCleanedAreaHa: formatTrim(input.snowCleanedAreaHa, 4),
 
     parameterA: formatNumber(parameterAForReport, 2),
@@ -182,14 +213,14 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
     technicalBreakHours: formatTrim(input.treatment.technicalBreakHours, 0),
     rainActiveProcessingHours: formatTrim(rainActiveProcessingHours, 0),
     meltActiveProcessingHours: formatTrim(meltActiveProcessingHours, 0),
-    meltResidualPerDay: formatNumber(results.treatment.meltResidualPerDayM3, 2),
-    requiredMeltWorkingVolume: formatNumber(results.treatment.requiredMeltWorkingVolumeM3, 2),
-    requiredReservoirWorkingVolume: formatNumber(results.treatment.requiredReservoirWorkingVolumeM3, 2),
-    requiredReservoirControlCase: results.treatment.reservoirControlCase === 'melt' ? 'талому стоку' : 'дождевому стоку',
+    meltResidualPerDay: formatNumber(meltResidualReport, 2),
+    requiredMeltWorkingVolume: formatNumber(requiredMeltWorkingVolumeReport, 2),
+    requiredReservoirWorkingVolume: formatNumber(requiredReservoirWorkingVolumeReport, 2),
+    requiredReservoirControlCase: requiredMeltWorkingVolumeReport > dailyRainVolumeReport ? 'талому стоку' : 'дождевому стоку',
     reservoirReservePercent: formatTrim(input.treatment.reservoirReservePercent.value, 2),
-    requiredReservoirFullVolume: formatNumber(results.treatment.requiredReservoirFullVolumeM3, 2),
+    requiredReservoirFullVolume: formatNumber(requiredReservoirFullVolumeReport, 2),
     reservoirWorkingVolume: formatNumber(input.treatment.reservoirWorkingVolumeM3, 2),
-    reservoirCheckResult: input.treatment.reservoirWorkingVolumeM3 >= results.treatment.requiredReservoirWorkingVolumeM3 ? 'выполняется' : 'не выполняется',
+    reservoirCheckResult: input.treatment.reservoirWorkingVolumeM3 >= requiredReservoirWorkingVolumeReport ? 'выполняется' : 'не выполняется',
     rainTreatmentCapacity: formatNumber(rainTreatmentCapacityForReport, 2),
     meltTreatmentCapacity: formatNumber(meltTreatmentCapacityForReport, 2),
     selectedTreatmentCapacity: formatNumber(selectedTreatmentCapacityForReport, 2)
@@ -322,6 +353,126 @@ function replaceKnownPlainPlaceholders(xml: string, values: Record<string, strin
   });
 }
 
+
+
+function readParagraphText(paragraphXml: string): string {
+  return Array.from(paragraphXml.matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g))
+    .map((match) => match[1]
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'"))
+    .join('');
+}
+
+function replaceParagraphWithPlainText(paragraphXml: string, text: string): string {
+  const openMatch = paragraphXml.match(/^<w:p\b[^>]*>/);
+  if (!openMatch) return paragraphXml;
+  const openTag = openMatch[0];
+  const pPrMatch = paragraphXml.match(/<w:pPr>[\s\S]*?<\/w:pPr>/);
+  const pPr = pPrMatch ? pPrMatch[0] : '';
+  return `${openTag}${pPr}<w:r><w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r></w:p>`;
+}
+
+function replaceFormulaParagraphs(xml: string, values: Record<string, string>): string {
+  const formulaText = (text: string): string | null => {
+    const compact = text.replace(/\s+/g, '');
+
+    if (compact.includes('Q=F×q5/10000=')) {
+      return `Q = F×q5/10000 = ${values.roofAreaM2}×${values.q5}/10000 = ${values.roofFlow} л/с,`;
+    }
+
+    if (compact.includes('q5=4') && compact.includes('q20')) {
+      return `q5 = 4^n × q20 = 4^${values.n} × ${values.q20}= ${values.q5} л/с, с 1 га,`;
+    }
+
+    if (compact.startsWith('Wд=10×hд×Ψд×F=')) {
+      return `Wд=10×hд×Ψд×F=10×${values.hd}×${values.psiAnnual}×${values.totalAreaHa}=${values.annualRainVolume} м3/год;`;
+    }
+
+    if (compact.startsWith('Wт=10×hт×Ψт×Kу×F=')) {
+      return `Wт=10×hт×Ψт×Kу×F=10×${values.ht}×${values.psiMelt}×${values.ky}×${values.totalAreaHa}=${values.annualMeltVolume} м3/год;`;
+    }
+
+    if (compact.startsWith('Wм=10×m×k×Fм×N=')) {
+      return `Wм = 10×m×k×Fм×N = 10×${values.washingRate}×${values.washingCoeff}×${values.washingAreaHa}×${values.washingCount} = ${values.washingVolume} м3/год.`;
+    }
+
+    if (compact.startsWith('Ψд=(')) {
+      return `Ψд=(${values.psiAnnualExpression})/ ${values.totalAreaHa} = ${values.psiAnnual}`;
+    }
+
+    if (compact.startsWith('Wг=Wд+Wт+Wм=')) {
+      return `Wг=Wд+Wт+Wм=${values.annualRainVolume}+${values.annualMeltVolume}+${values.washingVolume}=${values.annualTotalVolume} м3/год.`;
+    }
+
+    if (compact.startsWith('Wд.сут.=10×ha×F×Ψmid=')) {
+      return `Wд.сут.=10×ha×F×Ψmid=10×${values.haRainTreatment}×${values.rainTreatmentAreaHa}×${values.psimid}=${values.dailyRainVolume} м3/сут`;
+    }
+
+    if (compact.startsWith('Zmid=(')) {
+      return `Zmid=(${values.zmidExpression})/${values.rainTreatmentAreaHa}=${values.zmid}`;
+    }
+
+    if (compact.startsWith('Ψmid=(')) {
+      return `Ψmid=(${values.psimidExpression})/${values.rainTreatmentAreaHa}=${values.psimid}`;
+    }
+
+    if (compact.startsWith('Wт.сут=10×')) {
+      return `Wт.сут=10×hc×F×α×Ψт×Kу=10×${values.hc}×${values.totalAreaHa}×${values.meltUnevennessCoeff}×${values.psiMeltDaily}×${values.ky}=${values.dailyMeltVolume} м3/сут.`;
+    }
+
+    if (compact.startsWith('Ку=1−Fу/F=') || compact.startsWith('Ку=1-Fу/F=')) {
+      return `Ку=1 − Fу / F= 1 - ${values.snowCleanedAreaHa}/${values.totalAreaHa}= ${values.ky},`;
+    }
+
+    if (compact.startsWith('Qr=Zmid×A^1,2×F/tr^')) {
+      return `Qr=Zmid×A^1,2×F/tr^(1,2n−0,1) = ${values.zmid}×${values.parameterA}^1,2×${values.rainFlowAreaHa}/(${values.tr})^ ${values.flowExponent}= ${values.qr} л/с`;
+    }
+
+    if (compact.startsWith('A=q20·20n·') || compact.startsWith('A=q20·20^n·') || compact.startsWith('A=q20·20n·')) {
+      return `A = q20 · 20^n · (1 + lgP/lgmr)^γ=${values.q20}×20^${values.n}×(1+lg${values.p}/lg${values.mr})^ ${values.gamma}=${values.parameterA}`;
+    }
+
+    if (compact.startsWith('tr=tcon+tcan+')) {
+      return `tr = tcon+tcan+tp=${values.tcon}+${values.tcan}+${values.tp}=${values.tr} мин`;
+    }
+
+    if (compact.startsWith('Qcal=β×Qr=')) {
+      return `Qcal=β×Qr=${values.beta}×${values.qr}=${values.qcal} л/с`;
+    }
+
+    if (compact.startsWith('Vраб.тр=max(')) {
+      return `Vраб.тр=max(Wд.сут; Vт.раб)=max(${values.dailyRainVolume};${values.requiredMeltWorkingVolume})=${values.requiredReservoirWorkingVolume} м3.`;
+    }
+
+    if (compact.startsWith('Vполн.тр=Vраб.тр×(')) {
+      return `Vполн.тр = Vраб.тр × (1 + Kзап/100) = ${values.requiredReservoirWorkingVolume} × (1 + ${values.reservoirReservePercent}/100) = ${values.requiredReservoirFullVolume} м3.`;
+    }
+
+    if (compact.startsWith('Qоч.д=Wд.сут/') || compact.startsWith('Qоч.д=Wд.сут/')) {
+      return `Qоч.д = Wд.сут / (Tд − Tотст − Tпер) = ${values.dailyRainVolume} / (${values.rainProcessingHours} − ${values.settlingHours} − ${values.technicalBreakHours}) = ${values.rainTreatmentCapacity} м3/ч.`;
+    }
+
+    if (compact.startsWith('Qоч.т=Wт.сут/')) {
+      return `Qоч.т=Wт.сут/(Tт−Tотст−Tпер)=${values.dailyMeltVolume}/(${values.meltProcessingHours}−${values.settlingHours}−${values.technicalBreakHours})=${values.meltTreatmentCapacity} м3/ч.`;
+    }
+
+    if (compact.startsWith('Qоч=max(')) {
+      return `Qоч = max(Qоч.д; Qоч.т) = ${values.selectedTreatmentCapacity} м3/ч.`;
+    }
+
+    return null;
+  };
+
+  return xml.replace(/<w:p\b[\s\S]*?<\/w:p>/g, (paragraph) => {
+    const text = readParagraphText(paragraph);
+    const replacement = formulaText(text);
+    return replacement === null ? paragraph : replaceParagraphWithPlainText(paragraph, replacement);
+  });
+}
+
 async function replaceReportValuesInZip(zip: JSZip, values: Record<string, string>) {
   const xmlFiles = Object.keys(zip.files).filter((path) => path.startsWith('word/') && path.endsWith('.xml'));
 
@@ -332,6 +483,7 @@ async function replaceReportValuesInZip(zip: JSZip, values: Record<string, strin
       let xml = await file.async('string');
       xml = replaceContentControls(xml, values);
       xml = replaceKnownPlainPlaceholders(xml, values);
+      xml = replaceFormulaParagraphs(xml, values);
       zip.file(path, xml);
     })
   );
