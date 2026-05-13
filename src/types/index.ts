@@ -99,10 +99,8 @@ export type ProjectInput = {
   climate: ClimateParameters;
   totalAreaHa: number;
   surfaces: SurfaceItem[];
-  /** Ψт для среднегодового объема талых вод Wт, по п. 7.2.5: 0,5–0,7. */
+  /** Ψт — коэффициент стока талых вод. Используется и для Wт, и для Wт.сут. */
   snowMeltCoeff: NormativeValue;
-  /** Ψт для максимального суточного объема талых вод Wт.сут, по п. 7.3.5: 0,5–0,8. */
-  dailyMeltRunoffCoeff: NormativeValue;
   snowCleanedAreaHa: number;
   washingAreaHa: number;
   washingRateLPerM2: NormativeValue;

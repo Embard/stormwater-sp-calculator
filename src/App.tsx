@@ -38,8 +38,7 @@ const initialProject: ProjectInput = {
     { ...buildSurfaceFromTemplate('lawns', 'lawn', 3.3020), isCleanedFromSnow: false },
     { ...buildSurfaceFromTemplate('structures', 'roof', 1.3496), isCleanedFromSnow: true }
   ],
-  snowMeltCoeff: { value: 0.7, min: 0.5, max: 0.7, default: 0.7, unit: '-', sourceId, basis: 'normative-range' },
-  dailyMeltRunoffCoeff: { value: 0.7, min: 0.5, max: 0.8, default: 0.7, unit: '-', sourceId, basis: 'normative-range' },
+  snowMeltCoeff: { value: 0.7, min: 0.5, max: 0.8, default: 0.7, unit: '-', sourceId, basis: 'normative-range' },
   snowCleanedAreaHa: 3.2193,
   washingAreaHa: 1.8697,
   washingRateLPerM2: { value: 1.2, min: 0.8, max: 1.5, default: 1.2, unit: 'л/м²', sourceId, basis: 'normative-range' },
@@ -294,8 +293,7 @@ export default function App() {
                   <NormativeInput compact showSlider={false} label="hд, теплый период" value={project.climate.hdWarmPeriodMm} onChange={(hdWarmPeriodMm) => setProject({ ...project, climate: { ...project.climate, hdWarmPeriodMm } })} />
                   <NormativeInput compact showSlider={false} label="hт, холодный период" value={project.climate.htColdPeriodMm} onChange={(htColdPeriodMm) => setProject({ ...project, climate: { ...project.climate, htColdPeriodMm } })} />
                   <NormativeInput compact showSlider={false} label="hc, талый сток за 10 ч" value={project.climate.hcMeltTenHourMm} onChange={(hcMeltTenHourMm) => setProject({ ...project, climate: { ...project.climate, hcMeltTenHourMm } })} />
-                  <NormativeInput compact showSlider label="Ψт для Wт, годовой" value={project.snowMeltCoeff} onChange={(snowMeltCoeff) => setProject({ ...project, snowMeltCoeff })} />
-                  <NormativeInput compact showSlider label="Ψт для Wт.сут" value={project.dailyMeltRunoffCoeff} onChange={(dailyMeltRunoffCoeff) => setProject({ ...project, dailyMeltRunoffCoeff })} />
+                  <NormativeInput compact showSlider label="Ψт, коэффициент стока талых вод" value={project.snowMeltCoeff} onChange={(snowMeltCoeff) => setProject({ ...project, snowMeltCoeff })} />
                 </div>
               </div>
 

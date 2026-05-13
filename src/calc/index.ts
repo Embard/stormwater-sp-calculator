@@ -24,7 +24,7 @@ export function calculateProject(input: ProjectInput): CalculationResults {
     haRainTreatmentMm: input.climate.haRainTreatmentMm.value,
     hcMeltTenHourMm: input.climate.hcMeltTenHourMm.value,
     totalAreaHa: input.totalAreaHa,
-    meltRunoffCoeff: input.dailyMeltRunoffCoeff.value,
+    meltRunoffCoeff: input.snowMeltCoeff.value,
     meltUnevennessCoeff: input.meltUnevennessCoeff.value,
     snowRemovalCoeffKy: annual.snowRemovalCoeffKy
   });

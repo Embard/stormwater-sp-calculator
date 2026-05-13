@@ -96,15 +96,14 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
   const treatmentAreaReport = round(treatmentAreaHa, 4);
   const kyReport = round(results.annual.snowRemovalCoeffKy, 4);
   const psiAnnualReport = round(results.annual.weightedAnnualRainCoeff, 4);
-  const psiMeltAnnualReport = round(input.snowMeltCoeff.value, 4);
-  const psiMeltDailyReport = round(input.dailyMeltRunoffCoeff.value, 4);
+  const psiMeltReport = round(input.snowMeltCoeff.value, 4);
   const meltUnevennessReport = round(input.meltUnevennessCoeff.value, 4);
   const hdReport = round(input.climate.hdWarmPeriodMm.value, 0);
   const htReport = round(input.climate.htColdPeriodMm.value, 0);
   const hcReport = round(input.climate.hcMeltTenHourMm.value, 0);
   const haReport = round(input.climate.haRainTreatmentMm.value, 0);
   const annualRainVolumeReport = 10 * hdReport * psiAnnualReport * totalAreaReport;
-  const annualMeltVolumeReport = 10 * htReport * psiMeltAnnualReport * kyReport * totalAreaReport;
+  const annualMeltVolumeReport = 10 * htReport * psiMeltReport * kyReport * totalAreaReport;
   const washingRateReport = round(input.washingRateLPerM2.value, 4);
   const washingCoeffReport = round(input.washingRunoffCoeff.value, 4);
   const washingAreaReport = round(input.washingAreaHa, 4);
@@ -113,7 +112,7 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
   const annualTotalVolumeReport = annualRainVolumeReport + annualMeltVolumeReport + washingVolumeReport;
   const psimidReport = round(input.treatment.rainTreatmentCoeff.value, 3);
   const dailyRainVolumeReport = 10 * haReport * treatmentAreaReport * psimidReport * round(input.treatment.pollutedRainFraction.value, 4);
-  const dailyMeltVolumeReport = 10 * hcReport * totalAreaReport * meltUnevennessReport * psiMeltDailyReport * kyReport;
+  const dailyMeltVolumeReport = 10 * hcReport * totalAreaReport * meltUnevennessReport * psiMeltReport * kyReport;
 
   const rainActiveProcessingHours = Math.max(0, input.treatment.rainProcessingHours - input.treatment.settlingHours - input.treatment.technicalBreakHours);
   const meltActiveProcessingHours = Math.max(0, input.treatment.meltProcessingHours - input.treatment.settlingHours - input.treatment.technicalBreakHours);
@@ -158,8 +157,8 @@ function buildReportValues(input: ProjectInput, results: CalculationResults): Re
     psiAnnualExpression: weightedNumeratorExpression(input.surfaces, 'annualRainCoeff', (surface) => surface.areaHa > 0),
     psiAnnualHard: formatTrim(weightedValue(input.surfaces, 'annualRainCoeff', hardPredicate), 4),
     psiAnnualLawn: formatTrim(weightedValue(input.surfaces, 'annualRainCoeff', lawnPredicate), 4),
-    psiMelt: formatTrim(psiMeltAnnualReport, 4),
-    psiMeltDaily: formatTrim(psiMeltDailyReport, 4),
+    psiMelt: formatTrim(psiMeltReport, 4),
+    psiMeltDaily: formatTrim(psiMeltReport, 4),
     ky: formatTrim(kyReport, 4),
     meltUnevennessCoeff: formatTrim(meltUnevennessReport, 4),
 
@@ -420,7 +419,7 @@ function replaceFormulaParagraphs(xml: string, values: Record<string, string>): 
     }
 
     if (compact.startsWith('Wт.сут=10×')) {
-      return `Wт.сут=10×hc×F×α×Ψт×Kу=10×${values.hc}×${values.totalAreaHa}×${values.meltUnevennessCoeff}×${values.psiMeltDaily}×${values.ky}=${values.dailyMeltVolume} м3/сут.`;
+      return `Wт.сут=10×hc×F×α×Ψт×Kу=10×${values.hc}×${values.totalAreaHa}×${values.meltUnevennessCoeff}×${values.psiMelt}×${values.ky}=${values.dailyMeltVolume} м3/сут.`;
     }
 
     if (compact.startsWith('Ку=1−Fу/F=') || compact.startsWith('Ку=1-Fу/F=')) {
